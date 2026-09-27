@@ -14,6 +14,11 @@ namespace Vexillum.Acceptance.servergameplay
     /// </summary>
     public class BotsFixture : ServerFixture
     {
+        public BotsFixture()
+        {
+            GameplayFixture.WaitForServerObject(Server);
+        }
+
         protected override void Configure(ScratchRuntime runtime, ServerProcess.Options options)
         {
             runtime.SetServerSetting("maps", "bases");

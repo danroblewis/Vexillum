@@ -36,7 +36,42 @@ namespace Vexillum.Acceptance.servergameplay
         {
         }
 
+        public GameplayFixture()
+        {
+            WaitForServerObject(Server);
+        }
+
         public DebugConsole Console { get { return Server.Console; } }
+
+        /// <summary>
+        /// Waits until the debug console's <c>Server</c> global exists and the
+        /// server reports ready. The harness ReadyMarker is logged by the
+        /// acceptor thread started inside the Server constructor, before
+        /// Program.Main assigns the static field the console resolves
+        /// <c>Server</c> from (Server/Program.cs:56, Server/PortProgram.cs:95),
+        /// so the first script of a fresh fixture would otherwise race that
+        /// assignment ("Cannot perform runtime binding on a null reference").
+        /// </summary>
+        public static void WaitForServerObject(ServerProcess server)
+        {
+            DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            Exception last = null;
+            while (true)
+            {
+                try
+                {
+                    if (server.Console.EvalT<bool>("Server != null && (bool)Server.ready"))
+                        return;
+                }
+                catch (DebugEvalException e)
+                {
+                    last = e;
+                }
+                if (DateTime.UtcNow > deadline)
+                    throw new TimeoutException("debug console never saw a ready Server object" + (last != null ? ": " + last.Message : ""));
+                Thread.Sleep(50);
+            }
+        }
 
         /// <summary>A C# expression (for the debug console) evaluating to the ServerPlayer named <paramref name="name"/>.</summary>
         public static string P(string name)
