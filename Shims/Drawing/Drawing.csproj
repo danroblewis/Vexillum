@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
-    <PackageReference Include="StbImageSharp" Version="2.30.16" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" />
+    <PackageReference Include="StbImageSharp" />
   </ItemGroup>
 </Project>

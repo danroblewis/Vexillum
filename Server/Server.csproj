@@ -8,7 +8,7 @@
     <StartupObject>Server.PortProgram</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Game/Game/Game.csproj" />

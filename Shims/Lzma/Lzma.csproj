@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LZMA for map files and terrain sync. The compression engine comes from
+       the LZMA-SDK NuGet package (Igor Pavlov's 7-Zip C# SDK, namespace
+       SevenZip.Compression.LZMA); SevenZipHelper.cs is the small
+       Compress/Decompress helper the game calls (LZMA-alone framing: 5 props
+       bytes + 8-byte size), kept here because the SDK does not ship it. -->
+  <PropertyGroup>
+    <AssemblyName>Lzma</AssemblyName>
+    <RootNamespace>SevenZip.Compression.LZMA</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="LZMA-SDK" />
+  </ItemGroup>
+</Project>

@@ -8,6 +8,6 @@
     <RootNamespace>Microsoft.Xna.Framework</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" />
   </ItemGroup>
 </Project>

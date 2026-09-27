@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net9.0": {
+      "LZMA-SDK": {
+        "type": "Direct",
+        "requested": "[22.1.1, )",
+        "resolved": "22.1.1",
+        "contentHash": "lxG8/H53OCqebnDFlTStwzbgtmUN/DqnXN8kffa/ctHcSEHhIPDyEa3jLzpZxVX5F8bmJgvb1mna6gnhetykIw=="
+      }
+    }
+  }
+}

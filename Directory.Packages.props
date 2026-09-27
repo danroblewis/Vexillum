@@ -1,0 +1,20 @@
+<Project>
+  <!-- Single place for every third-party package version (NuGet central package
+       management). Projects reference packages by name only; `dotnet restore`
+       (implicit in `dotnet build` / `make`) downloads them from nuget.org and
+       records the exact resolved graph in each project's packages.lock.json. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="JTForks.MiscUtil" Version="1.285.0" />
+    <PackageVersion Include="LZMA-SDK" Version="22.1.1" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
+    <PackageVersion Include="StbImageSharp" Version="2.30.16" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+</Project>

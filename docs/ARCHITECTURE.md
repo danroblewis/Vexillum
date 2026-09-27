@@ -8,7 +8,7 @@ have not worked in yet.
 
 | Project | Path | Output | Role | Port status |
 |---|---|---|---|---|
-| Lzma | `Lzma/` | `Lzma.dll` | Vendored 7-Zip LZMA SDK (C#). Used by map files and terrain sync. | Pure managed, ports as-is. |
+| Lzma | `Shims/Lzma/` | `Lzma.dll` | `LZMA-SDK` NuGet package (7-Zip C# SDK) + `SevenZipHelper.cs`. Used by map files and terrain sync. | Done: package import. |
 | Platform (Windows) | `Platform/` | `Platform.dll` | One struct, `Vexillum.util.Vec2`, wrapping `Microsoft.Xna.Framework.Vector2`. | Fold into Game. |
 | PlatformLinux | `PlatformLinux/` | `Platform.dll` | Abandoned experiment: a `Vec2` with its own floats plus a fake empty `Microsoft.Xna.Framework.Vector2` class. Never referenced by the game. | Delete. |
 | Game | `Game/Game/` | `Game.dll` | Everything shared by client and server: entities, physics, level, netcode, UI, views, utilities. | The bulk of the port. |

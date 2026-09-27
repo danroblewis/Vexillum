@@ -5,7 +5,7 @@
     <RootNamespace>MapTools</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Lzma/Lzma.csproj" />
+    <ProjectReference Include="../Shims/Lzma/Lzma.csproj" />
     <!-- MapCreator.cs uses System.Drawing.Imaging (ImageCodecInfo, ImageFormat); the shim provides them. -->
     <ProjectReference Include="../Shims/Drawing/Drawing.csproj" />
   </ItemGroup>

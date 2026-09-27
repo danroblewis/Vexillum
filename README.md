@@ -10,8 +10,11 @@ https://www.youtube.com/watch?v=g-VFNvZIwUw
 The game compiles and runs again on current .NET and MonoGame (DesktopGL),
 natively on macOS (Apple Silicon and Intel), Linux and Windows. The only
 prerequisite is the .NET SDK 8 or newer (https://dotnet.microsoft.com/download);
-it is the compiler, the dependency manager (packages come from NuGet on the
-first build) and the test runner. No Wine, Mono, Visual Studio or XNA.
+it is the compiler, the dependency manager and the test runner. Third-party
+code is not checked in: every library (MonoGame, LZMA, MiscUtil, StbImageSharp,
+Roslyn scripting, xunit) is a NuGet package pinned in `Directory.Packages.props`
+and `packages.lock.json`, downloaded on the first build. No Wine, Mono,
+Visual Studio or XNA.
 
 ```
 make            # compile everything            (= dotnet build Vexillum.sln)

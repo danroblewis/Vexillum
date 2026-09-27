@@ -191,6 +191,20 @@ files were removed in step 12 (they are in git history before that commit).
   `Debug.WriteLine` from MonoGame itself; harmless, but grep the smoke log
   for `Ready for connections`/`Set terrain state`, not for line counts.
 
+## Dependencies as imports (added 2026-09-27, after the port)
+
+No third-party binaries or vendored sources remain. `Lzma/` (7-Zip C# SDK
+copy) became the `LZMA-SDK` 22.1.1 package plus the game's 90-line
+`SevenZipHelper.cs` under `Shims/Lzma/`; `Game/Game/util/misc/` (Jon Skeet's
+MiscUtil) became the `JTForks.MiscUtil` 1.285.0 package (netstandard, same
+code: `EndianBinaryReader.ReadString`/`Write(string)` verified identical, so
+the wire format is unchanged). Versions live in `Directory.Packages.props`,
+resolved graphs in `packages.lock.json` per project, the feed in
+`nuget.config`; `dotnet restore` (implicit in `make`) fetches everything.
+Packages in use: MonoGame.Framework.DesktopGL, StbImageSharp, LZMA-SDK,
+JTForks.MiscUtil, Microsoft.CodeAnalysis.CSharp.Scripting (debug console),
+xunit (tests).
+
 ## Master server replacement (added 2026-09-27, after the port)
 
 `Shims/MasterServer` (assembly `Vexillum.Port.MasterServer`) replaces the

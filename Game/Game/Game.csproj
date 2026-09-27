@@ -8,17 +8,12 @@
     <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Vendored MiscUtil (Jon Skeet) file that overrides MarshalByRefObject.CreateObjRef,
-         a .NET Framework remoting API absent from .NET 9. Nothing in Vexillum uses
-         NonClosingStreamWrapper, and CLAUDE.md rule 20 allows only project-file changes
-         to vendored code, so it is left out of the compile instead of edited. -->
-    <Compile Remove="util/misc/IO/NonClosingStreamWrapper.cs" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" />
+    <!-- MiscUtil (Jon Skeet): EndianBinaryReader/Writer + EndianBitConverter used by the netcode. -->
+    <PackageReference Include="JTForks.MiscUtil" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="../../Lzma/Lzma.csproj" />
+    <ProjectReference Include="../../Shims/Lzma/Lzma.csproj" />
     <ProjectReference Include="../../Platform/PlatformWindows.csproj" />
     <ProjectReference Include="../../Shims/XnaCompat/XnaCompat.csproj" />
     <ProjectReference Include="../../Shims/MasterServer/MasterServer.csproj" />

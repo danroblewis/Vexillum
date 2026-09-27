@@ -18,8 +18,9 @@ formats, naming, layout, comments and even the author's quirks stay.
 
 What is **not** historical and may be replaced freely: the binaries in
 `dlls/`, `lib/`, `Test/*.exe`, the vendored third-party libraries
-(`Lzma/`, `Game/Game/util/misc/`), the XNA content project, the 2010
-`.csproj`/`.sln` files and the 2025 `build.sh`/`BUILD_NOTES.md` attempt.
+(`Lzma/`, `Game/Game/util/misc/`, both now NuGet packages), the XNA content
+project, the 2010 `.csproj`/`.sln` files and the 2025 `build.sh`/`BUILD_NOTES.md`
+attempt.
 The libraries the game depends on (XNA, Nuclex, SlimDX, Steamworks.NET,
 System.Drawing, WinForms) are dependencies, not the work; they can be
 swapped for real implementations, source ports, or shims.
@@ -58,7 +59,7 @@ Steamworks file) that should be reverted in favour of shims.
 Game/Game/            shared library (client+server logic, UI, net)   -> Game.dll
 Server/               dedicated server exe                            -> VexillumServer
 ZombieSurvival/       client exe entry point (assembly VexillumGame)  -> VexillumGame
-Lzma/                 vendored LZMA SDK (do not edit beyond csproj)
+Shims/Lzma/           LZMA-SDK package + the game's SevenZipHelper (map files, terrain sync)
 MapTool/ CreateMap.cs/ ExtractMap/   map packing tools
 Platform/             Vec2 wrapper (to be folded into Game); PlatformLinux/ is dead
 ZombieSurvivalContent/  XNA content sources (fonts, wavs, Blur.fx, GUI skin)
@@ -210,8 +211,12 @@ and capture logs.
     so the MCP tools can drive and inspect both programs. Without
     `--connect` the client behaves exactly as before; without the env vars
     nothing extra runs.
-20. `Lzma/` and `Game/Game/util/misc/` (Jon Skeet's MiscUtil) are vendored
-    third-party code: touch only their project files.
+20. Third-party code is imported, never vendored or checked in as binaries:
+    `Directory.Packages.props` pins every package version (NuGet central
+    package management), `packages.lock.json` files pin the resolved graph,
+    `nuget.config` names the feed. LZMA comes from the `LZMA-SDK` package,
+    MiscUtil (endian readers, wire format!) from `JTForks.MiscUtil`. Adding a
+    dependency = one `PackageVersion` line there + `PackageReference` by name.
 21. Port one hazard class per commit (see `docs/PORTING.md` steps). Each
     commit builds. Do not delete the old `.csproj`/`.sln` until the new
     solution builds every project. `Test/` binaries are the reference build;
