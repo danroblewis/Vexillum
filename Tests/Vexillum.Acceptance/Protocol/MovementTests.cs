@@ -78,28 +78,30 @@ namespace Vexillum.Acceptance.protocol
                 Assert.DoesNotContain(a.Packets<PositionsPacket>(), p => p.For(idA) != null);
                 Assert.Contains(b.Packets<PositionsPacket>(), p => p.For(idA) != null);
 
-                // 16: delta (+5, +20) from lastPosition, not from the physics position
+                // 16: delta (+5, +20) from lastPosition, not from the physics position.
+                // Only the position right after the packet is asserted: where the airborne
+                // entity lands is not deterministic on this server (the derived velocity
+                // depends on the time since the last packet, and a hostile bot's hit sets
+                // its velocity or kills it, which freezes it mid-air until the respawn).
                 a.SendPositionDelta(5, 20);
                 Assert.True(Poll.Until(delegate()
                 {
                     Vec2 p = side.Position(alice);
                     return Math.Abs(p.X - (x + 5)) <= 3 && p.Y >= y + 8;
                 }, TimeSpan.FromSeconds(3)), "server position after 16 is " + side.Position(alice) + ", expected about " + (x + 5) + "," + (y + 20));
-                Vec2 settled2 = side.WaitForRest(alice, TimeSpan.FromSeconds(5));
-                Assert.InRange(settled2.X, x + 5 - 8, x + 5 + 8);   // the derived velocity may drift it a little while airborne
-                Assert.InRange(settled2.Y, y - 4, y + 4);            // fell back onto the ground
+                // let physics carry it well below lastPosition so that 14 is observable
+                // (normally it falls; not asserted, see above)
+                Poll.Until(() => side.Position(alice).Y < y + 8, TimeSpan.FromSeconds(3));
 
-                // 14: unchanged means "back to lastPosition" (x + 5, y + 20) with a zero velocity,
-                // whatever physics did meanwhile
+                // 14: unchanged means "back to lastPosition" (x + 5, y + 20) with a zero velocity
+                // (diff 0 in SetVelocity), whatever physics did meanwhile
                 a.SendPositionUnchanged();
                 Assert.True(Poll.Until(delegate()
                 {
                     Vec2 p = side.Position(alice);
-                    return Math.Abs(p.X - (x + 5)) <= 1.5f && p.Y >= y + 8;
+                    return Math.Abs(p.X - (x + 5)) <= 1.5f && p.Y >= y + 10;
                 }, TimeSpan.FromSeconds(3)), "server position after 14 is " + side.Position(alice) + ", expected lastPosition " + (x + 5) + "," + (y + 20));
-                Vec2 settled3 = side.WaitForRest(alice, TimeSpan.FromSeconds(5));
-                Assert.InRange(settled3.X, x + 5 - 2, x + 5 + 2);   // no drift this time: diff 0 gave velocity 0
-                Assert.InRange(settled3.Y, y - 4, y + 4);
+                Assert.Equal(0f, side.Velocity(alice).X);        // no derived drift this time: diff 0 gave velocity 0
             }
         }
 
