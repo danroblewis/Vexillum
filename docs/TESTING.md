@@ -83,6 +83,7 @@ Namespace `Vexillum.Acceptance`. One class per helper, each with XML docs:
 | `MapFile` | parses a `.map` without decoding images; `Md5(path)` as the client sends it; `Width`/`Height` |
 | `TerrainSnapshot` | the `ToBytes()` bitfield: `IsSolid(x, y)`, `SolidCount`, `Sha256Hex`, `CountDifferences` |
 | `HeadlessLevel` | a concrete `Level` from a shipped map with `Util.IsServer = true`: `AddHumanoid`, `AddHumanoidAtSpawn`, `Add`, `StepFrames(n)`, `IsSolid`, `CollisionNibble`, `IsLadder`, `EntityAt`, `Snapshot`, `Spawns`, `Flags`, `GroundBelow` |
+| `SyntheticLevel` | a concrete `Level` over hand-made collision bitmaps described in world coordinates (`Build(w, h, (x, y) => colour)`, `Uniform`, colour constants `Empty`/`Solid`/`Ladder`/`Clear`/`Destructible(nibble)`) or a shipped map without regions (`FromShippedMap`); records `Collisions`, `HitscanHits`, `Deaths`, owns the `TaskQueue` (`Tasks`, processed after each `StepFrames` frame), `UseServerCollision()` calls `OnCollide` like ServerLevel, `CreateEntity<T>(fullName)` builds internal entity types (Rocket, ClusterBomb) |
 | `ServerFixture` | `IClassFixture` with one runtime + one server per class; override `Configure` to edit settings before the start |
 | `GameStateCollection`, `DisplayCollection` | serial collections, see below |
 
