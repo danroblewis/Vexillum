@@ -436,10 +436,13 @@ FodyWeavers.xsd
 
 # Vexillum port
 .claude/settings.local.json
-debug_client.log
-debug_server.log
-Test/lock
-.DS_Store
 .claude/worktrees/
 bin/
 obj/
+.DS_Store
+# runtime files written by the game and server into the Test/ runtime directory
+Test/lock
+Test/debug_*.log
+Test/Server/debug_*.log
+debug_client.log
+debug_server.log
