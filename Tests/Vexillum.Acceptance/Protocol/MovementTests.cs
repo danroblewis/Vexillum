@@ -32,9 +32,14 @@ namespace Vexillum.Acceptance.protocol
             Assert.InRange(k, 1, 60);
             int probeY = (int)rest.Y + 60;
             // the same platform (same ground level) as the spawn, at least 40 px away from the
-            // rest position and as far as possible from bots and dropped flags
-            int x = Ground.FindClearSpot(t, c, c.MyEntityId, xFrom, xTo, probeY, 14, ground, (int)rest.X, 40, 0, 30);
-            Assert.True(x >= 0, "no clear flat ground at level " + ground + " in [" + xFrom + ", " + xTo + "]");
+            // rest position and as far as possible from bots and dropped flags. The spawn is
+            // random inside its region, so widen the search until flat ground is found.
+            int x = -1;
+            for (int reach = xTo - (int)rest.X; x < 0 && reach <= 1200; reach *= 2)
+            {
+                x = Ground.FindClearSpot(t, c, c.MyEntityId, (int)rest.X - reach, (int)rest.X + reach, probeY, 14, ground, (int)rest.X, 40, 0, 30);
+            }
+            Assert.True(x >= 0, "no clear flat ground at level " + ground + " within 1200 px of " + rest);
             return new Vec2(x, ground + k);
         }
 
