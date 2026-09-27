@@ -23,34 +23,29 @@ must not violate an invariant in `CLAUDE.md`.
 
 ## How to build and run
 
-Everything is `dotnet` CLI, native on Apple Silicon/Linux/Windows; no Wine,
-Mono, `msbuild`/`xbuild` or `mgfxc`. The runtime directory is `Test/`
+Everything is the `dotnet` SDK (compiler + NuGet + test runner), native on
+Apple Silicon/Linux/Windows; no Wine, Mono, `msbuild`/`xbuild` or `mgfxc`.
+The `Makefile` wraps the usual commands. The runtime directory is `Test/`
 (`Content/`, `Maps/`, `Server/settings.txt`, `settings.xml`, `controls.xml`).
 
 ```
-dotnet build Vexillum.sln                                   # 14 projects, Debug, 0 errors
-dotnet test Vexillum.sln                                    # 31 xunit tests (shims, terrain oracle, Nuclex)
-
-cd Test && dotnet ../Server/bin/Debug/net9.0/VexillumServer.dll
-        # dedicated server, no window; listens on 24224 (Server/settings.txt); Ctrl-C stops it
-cd Test && dotnet ../ZombieSurvival/bin/Debug/net9.0/VexillumGame.dll
-        # client exactly as in 2013: main menu, offline Steam identity
-cd Test && dotnet ../ZombieSurvival/bin/Debug/net9.0/VexillumGame.dll --connect 127.0.0.1:24224
-        # client that joins that server as soon as the main menu is up
-
-VEXILLUM_LOG_STDOUT=1 <either command>       # echo Util.Debug lines to stdout (Debug builds)
---root <dir>                                 # run from another runtime directory
---port <n>                                   # server: override the port in Server/settings.txt
-
-python3 .claude/mcp/vexillum_dev.py smoke_test seconds=30 clients=2
-        # server + two clients on loopback; prints SMOKE: PASS/FAIL, log tails and a screenshot path
-python3 .claude/mcp/vexillum_dev.py build target=Vexillum.sln | invariant_check | preservation_check | port_audit
+make                # dotnet build Vexillum.sln -c Debug      15 projects, 0 errors
+make test           # dotnet test Vexillum.sln                31 xunit tests
+make server         # cd Test && ../Server/bin/Debug/net9.0/VexillumServer
+make client         # cd Test && ../ZombieSurvival/bin/Debug/net9.0/VexillumGame
+make play CONNECT=127.0.0.1:24224     # same, with --connect
+make smoke          # loopback server + two clients through the vexillum-dev tool
+make check          # invariant_check + preservation_check
+make dist RID=osx-arm64               # dotnet publish --self-contained into dist/<rid>/
 ```
 
-The logs land in `Test/debug_client.log` and `Test/Server/debug_server.log`
-(ignored by git). The master-server heartbeat to `playvexillum.com` fails
-with a DNS error that the author's own `catch` writes to the server log;
-that is expected offline and harmless.
+`dotnet build` emits, per executable project, a native launcher
+(`VexillumServer`, `VexillumGame`, `.exe` on Windows) and the IL assembly it
+loads (`VexillumServer.dll`, `VexillumGame.dll`). Running `dotnet X.dll` is
+just another way to start the same program; it is not a build step.
+Options: `--root <dir>`, `--connect host:port` (client), `--port n` (server);
+`VEXILLUM_LOG_STDOUT=1` echoes `Util.Debug` to stdout, `VEXILLUM_DEBUG_PORT=n`
+opens the in-process debug console.
 
 ## Why the 2025 Mono attempt (`BUILD_NOTES.md`, `build.sh`) could not work
 

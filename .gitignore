@@ -447,3 +447,4 @@ Test/Server/debug_*.log
 debug_client.log
 debug_server.log
 .claude/mcp/serve.log
+dist/

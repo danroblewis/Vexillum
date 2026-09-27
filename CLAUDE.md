@@ -100,16 +100,20 @@ MonoGame `DesktopGL`, whose native SDL2/OpenAL libraries ship as arm64.
 
 ## Commands
 
-Until step 1 of `docs/PORTING.md` lands there is no working build. After it:
-
 ```
-dotnet build Vexillum.sln -c Debug                 # or the MCP `build` tool
-dotnet run --project Server -- --root Test         # server, headless
-dotnet run --project ZombieSurvival -- --root Test --connect 127.0.0.1:24224
+make                 # dotnet build Vexillum.sln -c Debug (compile; NuGet restore is implicit)
+make test            # dotnet test Vexillum.sln
+make server          # cd Test && ../Server/bin/Debug/net9.0/VexillumServer
+make client          # cd Test && ../ZombieSurvival/bin/Debug/net9.0/VexillumGame
+make play            # client with --connect 127.0.0.1:24224
+make dist RID=...    # dotnet publish --self-contained into dist/<rid>/
 ```
 
-Prefer the MCP tools (`build`, `smoke_test`, `run_server`, `run_client`) over
-raw shell for these; they parse errors and capture logs.
+`dotnet build` is the compiler; the `.dll` files under `bin/` are its output
+(IL assemblies) and sit next to native launchers of the same name. Never
+describe `dotnet Foo.dll` as a build step. Prefer the MCP tools (`build`,
+`smoke_test`, `proc_start`) over raw shell for automation; they parse errors
+and capture logs.
 
 ## Invariants
 
