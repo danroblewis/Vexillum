@@ -157,7 +157,7 @@ namespace Vexillum.ui
         ///   If the control indicates that it didn't handle the key press, it will not
         ///   receive the associated key release notification.
         /// </remarks>
-        protected override bool OnKeyPressed(Keys keyCode)
+        protected new bool OnKeyPressed(Keys keyCode)
         {
 
             // We only accept keys if we have the focus. If the notification is sent in search
