@@ -167,13 +167,32 @@ as `ValidateAuthTicketResponse_t`, `EBeginAuthSessionResult`,
 currently generates a random name and id, which is what makes
 "steamless" testing possible.
 
-## Web services (all dead)
+## Web services
 
-`Util.HttpGet/HttpPost` talk to `http://playvexillum.com/game/`:
+`Util.HttpGet/HttpPost` were written against `http://playvexillum.com/game/`:
 `servers.php` (server list), `ping.php` (server heartbeat), `reportBug.php`.
+That site is gone. Since 2026-09-27 both methods hand the request to
+`Shims/MasterServer` first (two `// PORT:` lines in `Util.cs`), which answers
+the three scripts in the original text format:
+
+* `servers.php`: LAN servers heard on UDP 24224 for ~1.2 s (`[LAN]` prefix,
+  sender address = connect address) plus internet servers whose heartbeat
+  appeared on the public ntfy.sh topic `vexillum-servers-v1` in the last 22
+  minutes and that answer the TCP status probe (byte 255 -> bool).
+* `ping.php`: starts/refreshes the UDP beacon (every 2 s, JSON `{v,name,port,
+  players,maxplayers,map,key}` to every interface broadcast, 255.255.255.255
+  and 127.0.0.1) and, for public servers, publishes the heartbeat JSON to
+  ntfy at most every 10 minutes with the public IP from api.ipify.org.
+* `reportBug.php`: writes the report to `bugreports/` in the runtime dir.
+
+Environment: `VEXILLUM_MASTER=off`, `VEXILLUM_MASTER_URL`, `VEXILLUM_MASTER_TOPIC`
+(any ntfy server/topic, including a self-hosted one), `VEXILLUM_LAN=off`,
+`VEXILLUM_LAN_PORT`. Internet play still needs the server's TCP port
+forwarded, exactly as in 2013.
+
 The lobby (`MultiplayerView`/`MPClient`) speaks a *different* big-endian,
-length-prefixed protocol to a chat server on port 34224 that no longer exists.
-Treat all of these as optional features that must fail gracefully offline.
+length-prefixed protocol to a chat server on port 34224 that no longer exists;
+it is untouched and fails gracefully.
 
 ## Rendering
 

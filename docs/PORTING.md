@@ -196,6 +196,17 @@ files were removed in step 12 (they are in git history before that commit).
   `Debug.WriteLine` from MonoGame itself; harmless, but grep the smoke log
   for `Ready for connections`/`Set terrain state`, not for line counts.
 
+## Master server replacement (added 2026-09-27, after the port)
+
+`Shims/MasterServer` (assembly `Vexillum.Port.MasterServer`) replaces the
+dead playvexillum.com scripts; see `docs/ARCHITECTURE.md` "Web services".
+Historical edits: two `// PORT:` lines at the top of `Util.HttpPost` and
+`Util.HttpGet` (Game/Game/Util.cs:50 and :83) that route the request to
+`MasterServer.TryHandle`; `Vexillum.Server` and the rest of both methods are
+untouched and still used for any other path. Verified: server heartbeat
+visible on ntfy.sh, LAN beacon picked up by a client on the same machine,
+the author's Server List dialog lists `[LAN] Vexillum Server`.
+
 ## Debug host (added 2026-09-27, after the port)
 
 `Shims/DebugHost` (assembly `Vexillum.Port.DebugHost`) is dev tooling, not

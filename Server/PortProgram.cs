@@ -81,6 +81,9 @@ namespace Server
                 return 2;
             }
 
+            // Master-server replacement logs through the server console log.
+            global::Vexillum.Port.Master.MasterServer.Logger = delegate(string m) { Util.Debug(m); };
+
             // Optional in-process debug console for tooling (Shims/DebugHost):
             // VEXILLUM_DEBUG_PORT=<n> makes the server evaluate C# snippets sent
             // to 127.0.0.1:<n>. Never enabled by default.

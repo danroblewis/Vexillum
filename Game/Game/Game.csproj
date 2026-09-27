@@ -21,6 +21,7 @@
     <ProjectReference Include="../../Lzma/Lzma.csproj" />
     <ProjectReference Include="../../Platform/PlatformWindows.csproj" />
     <ProjectReference Include="../../Shims/XnaCompat/XnaCompat.csproj" />
+    <ProjectReference Include="../../Shims/MasterServer/MasterServer.csproj" />
     <ProjectReference Include="../../Shims/Drawing/Drawing.csproj" />
     <ProjectReference Include="../../Shims/Steamworks/Steamworks.csproj" />
     <ProjectReference Include="../../Shims/WinForms/WinForms.csproj" />

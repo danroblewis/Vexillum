@@ -193,9 +193,10 @@ raw shell for these; they parse errors and capture logs.
     `Steamworks` shim (started in `Game/Game/SteamworksStub.cs`; move it to
     `Shims/`) so client and server compile; offline it produces an identity
     the way `Vexillum.SetSteamIdentity` does today. The game must start,
-    join a server and play with no Steam and no network access to
-    `playvexillum.com`. All HTTP calls have short timeouts and fail
-    silently to the log.
+    join a server and play with no Steam and no internet access. The dead
+    `playvexillum.com` scripts are answered by `Shims/MasterServer` (ntfy.sh
+    registry + LAN UDP beacons, see `docs/ARCHITECTURE.md` "Web services");
+    all HTTP calls have short timeouts and fail silently to the log.
 18. The server must build and run with no graphics device and no window;
     `Util.IsServer` guards stay in place.
 19. New entry-point code (not the author's) may add `--root <dir>`,
@@ -261,6 +262,9 @@ raw shell for these; they parse errors and capture logs.
     `Shims/DebugHost` and is never active otherwise;
   - content: `map_info`, `extract_map`, `create_map`, `terrain_reference`,
     `xnb_info`, `decompile`.
+  Server discovery in tests: a server started with the tools publishes a real
+  heartbeat to the public ntfy topic unless `VEXILLUM_MASTER=off` is set; LAN
+  beacons use UDP 24224.
   Tool docs are in the server file; `runtime_status` is the right first call
   in a fresh session. Do not run two servers on one port: timed and
   persistent tools share port 24224 unless you pass `port=`.
