@@ -63,8 +63,8 @@ namespace Vexillum.Acceptance.toolsconfig
             string shipped = File.ReadAllText(Path.Combine(Repo.RuntimeDir, "Server", "settings.txt"));
             string rewritten = File.ReadAllText(fx.Runtime.ServerSettingsPath);
 
-            Assert.NotEqual(24224, fx.Server.Port);
-            Assert.Equal(shipped.Replace("port 24224", "port " + fx.Server.Port), rewritten);
+            Assert.NotEqual(Protocol.DefaultPort, fx.Server.Port);
+            Assert.Equal(shipped.Replace("port " + Protocol.DefaultPort, "port " + fx.Server.Port), rewritten);
             Assert.Equal(fx.Server.Port.ToString(), fx.Runtime.GetServerSetting("port"));
             Assert.Contains("port=" + fx.Server.Port, fx.Server.Output);
             Assert.Contains("PortProgram: setting port " + fx.Server.Port + " in ", fx.Server.Output);
@@ -128,7 +128,7 @@ namespace Vexillum.Acceptance.toolsconfig
                     string text = File.ReadAllText(rt.ServerSettingsPath);
                     // The shipped file is that default text (the WinForms launcher wrote it); only the port differs.
                     string shipped = File.ReadAllText(Path.Combine(Repo.RuntimeDir, "Server", "settings.txt")).TrimEnd('\r', '\n');
-                    Assert.Equal(shipped.Replace("port 24224", "port " + s.Port), text.TrimEnd('\r', '\n'));
+                    Assert.Equal(shipped.Replace("port " + Protocol.DefaultPort, "port " + s.Port), text.TrimEnd('\r', '\n'));
 
                     Util.ServerConfig sc = Util.ParseServerConfig(text);
                     Util.ServerConfig def = new Util.ServerConfig();

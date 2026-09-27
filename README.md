@@ -40,3 +40,5 @@ lacks, Nuclex (source port), Steamworks (offline), `System.Drawing`,
 `System.Windows.Forms` and the old playvexillum.com master server are provided
 by the `Shims/` projects, so the original files compile as they were written.
 Details, status and what is left: [docs/PORTING.md](docs/PORTING.md).
+Tests (unit, acceptance against the real server, end-to-end with real game
+windows) and how to run them: [docs/TESTING.md](docs/TESTING.md).

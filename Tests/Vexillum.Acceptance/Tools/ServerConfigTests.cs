@@ -23,7 +23,7 @@ namespace Vexillum.Acceptance.toolsconfig
         {
             Util.ServerConfig sc = Util.ParseServerConfig(ShippedSettingsText());
 
-            Assert.Equal(24224, sc.port);
+            Assert.Equal(Protocol.DefaultPort, sc.port);
             Assert.Equal("Vexillum Server", sc.name);
             Assert.Equal(12, sc.maxPlayers);
             Assert.Equal(new string[] { "RocketLauncher", "SMG", "Sword" }, sc.weapons);
@@ -42,7 +42,7 @@ namespace Vexillum.Acceptance.toolsconfig
             Util.ServerConfig sc = Util.ParseServerConfig("");
 
             Assert.Equal(VexillumConstants.DEFAULT_PORT, sc.port);
-            Assert.Equal(24224, sc.port);
+            Assert.Equal(Protocol.DefaultPort, sc.port);
             Assert.Equal("Vexillum Server", sc.name);
             Assert.Equal(12, sc.maxPlayers);
             Assert.Equal(new string[] { "RocketLauncher", "SMG", "Sword" }, sc.weapons);
@@ -73,7 +73,7 @@ namespace Vexillum.Acceptance.toolsconfig
         {
             Util.ServerConfig sc = Util.ParseServerConfig(ShippedSettingsText().Replace("\n", "\r\n"));
 
-            Assert.Equal(24224, sc.port);
+            Assert.Equal(Protocol.DefaultPort, sc.port);
             Assert.Equal(12, sc.maxPlayers);
             Assert.Equal(4, sc.maxCaptures);
             Assert.Equal(5000, sc.respawnTime);

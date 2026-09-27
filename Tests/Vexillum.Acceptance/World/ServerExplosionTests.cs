@@ -247,7 +247,8 @@ namespace Vexillum.Acceptance.physicsterrain
                 float expected0 = 100f - 100f * Math.Min(1f, d0 / 39f) * 0.5f;
                 WaitFrames(f + 3);
                 Assert.Equal(expected0, HealthOf(c.Name), 1);
-                Assert.True(HealthOf(c.Name) > 99.9f, "point blank does (almost) no damage: " + HealthOf(c.Name));
+                // d0 is the fractional part of the settled position (0 <= d0 < 1), so the damage is below 100 * (1/39) * 0.5 = 1.29
+                Assert.True(HealthOf(c.Name) > 100f - 100f * (1f / 39f) * 0.5f, "point blank does (almost) no damage: " + HealthOf(c.Name));
                 HealthPacket hp0 = c.WaitFor<HealthPacket>(p => p.EntityId == c.MyEntityId, TimeSpan.FromSeconds(5), mark);
                 Assert.Equal(expected0, hp0.Health, 1);
             }

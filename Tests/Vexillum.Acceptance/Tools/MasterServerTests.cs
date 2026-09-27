@@ -376,19 +376,19 @@ namespace Vexillum.Acceptance.toolsconfig
         }
 
         [Fact]
-        public void Environment_switches_are_case_insensitive_and_LanPort_falls_back_to_24224()
+        public void Environment_switches_are_case_insensitive_and_LanPort_falls_back_to_the_default_port()
         {
             using (EnvScope env = new EnvScope("VEXILLUM_MASTER", "OFF", "VEXILLUM_LAN", "Off", "VEXILLUM_LAN_PORT", null))
             {
                 Assert.False(MasterServer.InternetEnabled);
                 Assert.False(MasterServer.LanEnabled);
-                Assert.Equal(24224, MasterServer.LanPort);
+                Assert.Equal(Protocol.DefaultPort, MasterServer.LanPort);
                 env.Set("VEXILLUM_LAN_PORT", "0");
-                Assert.Equal(24224, MasterServer.LanPort);
+                Assert.Equal(Protocol.DefaultPort, MasterServer.LanPort);
                 env.Set("VEXILLUM_LAN_PORT", "70000");
-                Assert.Equal(24224, MasterServer.LanPort);
+                Assert.Equal(Protocol.DefaultPort, MasterServer.LanPort);
                 env.Set("VEXILLUM_LAN_PORT", "abc");
-                Assert.Equal(24224, MasterServer.LanPort);
+                Assert.Equal(Protocol.DefaultPort, MasterServer.LanPort);
                 env.Set("VEXILLUM_LAN_PORT", "5555");
                 Assert.Equal(5555, MasterServer.LanPort);
                 env.Set("VEXILLUM_MASTER", "ntfy");
@@ -524,7 +524,7 @@ namespace Vexillum.Acceptance.toolsconfig
             using (LogCapture log = new LogCapture())
             {
                 SeedPublicIp("203.0.113.9");
-                string query = "ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=24224&public=True";
+                string query = "ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=" + Protocol.DefaultPort + "&public=True";
                 bool handled;
                 Assert.Equal("OK", Handle(query, null, out handled));
                 Assert.Equal("OK", Handle(query, null, out handled));     // inside PublishInterval: throttled
@@ -544,7 +544,7 @@ namespace Vexillum.Acceptance.toolsconfig
                     Assert.Equal(1, r.GetProperty("v").GetInt32());
                     Assert.Equal("S", r.GetProperty("name").GetString());
                     Assert.Equal("203.0.113.9", r.GetProperty("ip").GetString());
-                    Assert.Equal(24224, r.GetProperty("port").GetInt32());
+                    Assert.Equal(Protocol.DefaultPort, r.GetProperty("port").GetInt32());
                     Assert.Equal(0, r.GetProperty("players").GetInt32());
                     Assert.Equal(12, r.GetProperty("maxplayers").GetInt32());
                     Assert.Equal("bases", r.GetProperty("map").GetString());
@@ -553,7 +553,7 @@ namespace Vexillum.Acceptance.toolsconfig
                     Assert.Equal("vexillum", r.GetProperty("game").GetString());
                     Assert.Equal(3, r.GetProperty("protocol").GetInt32());
                 }
-                Assert.Equal(1, log.Count("MasterServer: published heartbeat to " + registry.Url + "/test-topic as 203.0.113.9:24224 (S, map bases)"));
+                Assert.Equal(1, log.Count("MasterServer: published heartbeat to " + registry.Url + "/test-topic as 203.0.113.9:" + Protocol.DefaultPort + " (S, map bases)"));
 
                 // A private server never publishes, even with the throttle reset.
                 SeedPublicIp("203.0.113.9");
@@ -572,12 +572,12 @@ namespace Vexillum.Acceptance.toolsconfig
                 SeedPublicIp("203.0.113.9");
                 registry.PostStatus = 403;
                 bool handled;
-                Assert.Equal("OK", Handle("ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=24224&public=True", null, out handled));
+                Assert.Equal("OK", Handle("ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=" + Protocol.DefaultPort + "&public=True", null, out handled));
                 Assert.Single(registry.Requests);
                 Assert.True(log.Any("MasterServer: registry refused the heartbeat: 403"), log.Text);
                 Assert.False(log.Any("published heartbeat"));
                 // Not throttled after a refusal: the next heartbeat tries again.
-                Assert.Equal("OK", Handle("ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=24224&public=True", null, out handled));
+                Assert.Equal("OK", Handle("ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=" + Protocol.DefaultPort + "&public=True", null, out handled));
                 Assert.Equal(2, registry.Requests.Count);
             }
         }
@@ -598,7 +598,7 @@ namespace Vexillum.Acceptance.toolsconfig
                 try
                 {
                     bool handled;
-                    Assert.Equal("OK", Handle("ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=24224&public=True", null, out handled));
+                    Assert.Equal("OK", Handle("ping.php?name=S&key=1&map=bases&players=0&maxplayers=12&port=" + Protocol.DefaultPort + "&public=True", null, out handled));
                     Assert.True(log.Any("MasterServer: no public IP available; the server is discoverable on the LAN only"), log.Text);
                     Assert.Empty(registry.Requests);
                 }

@@ -14,6 +14,34 @@ must stay clean).
 `dotnet test Tests/Vexillum.Acceptance --filter "FullyQualifiedName~ScriptedClient"` or
 `python3 -m pytest Tests/e2e -m e2e -k smoke`.
 
+## Counts and status
+
+Last full run of every layer on this branch (macOS arm64, .NET 9, MonoGame
+3.8.4). The acceptance suite was run three times in a row with identical
+results; the skips are the known original bugs listed further down.
+
+| layer | area (namespace / folder) | tests | pass | skip | run only this area |
+|---|---|---|---|---|---|
+| unit | `Vexillum.Tests` | 31 | 31 | 0 | `make test` |
+| acceptance | harness self-tests (`Vexillum.Acceptance.*SelfTests`, `KnownServerBugs`) | 14 | 13 | 1 | `--filter "FullyQualifiedName~SelfTests"` |
+| acceptance | protocol (`Vexillum.Acceptance.protocol`, `Protocol/`) | 66 | 63 | 3 | `--filter "FullyQualifiedName~Acceptance.protocol"` |
+| acceptance | server gameplay (`Vexillum.Acceptance.servergameplay`, `Gameplay/`) | 43 | 41 | 2 | `--filter "FullyQualifiedName~servergameplay"` |
+| acceptance | physics and terrain (`Vexillum.Acceptance.physicsterrain`, `World/`) | 72 | 67 | 5 | `--filter "FullyQualifiedName~physicsterrain"` |
+| acceptance | tools and config (`Vexillum.Acceptance.toolsconfig`, `Tools/`) | 82 | 80 | 2 | `--filter "FullyQualifiedName~toolsconfig"` |
+| **acceptance** | **all** (`make acceptance`, about 3 minutes) | **277** | **264** | **13** | |
+| e2e | `Tests/e2e/test_*.py` (launcher, main menu, movement, weapons, chat/HUD, session, spectator, harness smoke) | 39 | 39 | 0 xfail | `make e2e` (about 4 minutes, opens windows) |
+
+(`dotnet test` counts theory cases: the 73 `[Fact]`/`[Theory]` methods of
+`Tools/` expand to 82 cases.) The filters are `dotnet test
+Tests/Vexillum.Acceptance -c Debug --no-build --filter ...` after `make`;
+the e2e run takes `-k <substring>` to pick tests.
+
+An acceptance test that starts a server takes a few seconds; a class shares
+one server through its fixture. Nothing in any layer touches `Test/`,
+listens on `24224` (the harness constants `Protocol.DefaultPort` and
+`clientlib.DEFAULT_PORT` exist only for assertions on the game's default) or
+publishes to the public registry (`VEXILLUM_MASTER=off`).
+
 Everything is built with `dotnet build Vexillum.sln` first (the acceptance
 project references `Server.csproj` so the executable it starts is up to
 date). Executables: `Server/bin/Debug/net9.0/VexillumServer`,
@@ -216,6 +244,68 @@ covered. On a Retina display the PNG has twice the pixels of the screen
 points you pass in `region`. Screenshots are macOS only (`screencapture`);
 on other platforms `screenshot()` raises. Two clients in one scratch runtime
 share `debug_client.log`; use `client.logs()` (stdout) per process instead.
+
+## Skipped tests: known original bugs
+
+Each test below asserts the behaviour the author intended and is skipped
+because the 2013 code does not deliver it; the bug is described under
+"Known original bugs" in `docs/PORTING.md` and stays unfixed until a
+deliberate, named commit (invariant 11). Un-skip the test in that commit.
+
+| test | bug |
+|---|---|
+| `HarnessSelfTests.KnownServerBugs.ServerKeepsServingWithMaxbotsZero` | `Server.UpdateBots` loops forever when `RemoveBot` finds no bot of the class it picks (`maxbots 0` and one human) |
+| `Gameplay/CommandTests.Kick_disconnects_the_named_player` | `/kick` compares `p.name` (the issuer) instead of `other.name` |
+| `Gameplay/CommandTests.Ban_disconnects_the_named_player` | `/ban` compares `p.name` (the issuer) instead of `other.name` |
+| `Protocol/EncodingTests.Strings_of_128_bytes_or_more_round_trip` | MiscUtil `Write7BitEncodedInt` writes a stray `0x00` for lengths of 128 or more |
+| `Protocol/RejectionTests.Name_of_128_characters_is_accepted` | same 7-bit length bug: the 128-character name arrives as an empty name plus a garbage ticket length |
+| `Protocol/RejectionTests.Name_of_129_characters_is_rejected_as_invalid` | same 7-bit length bug: the server never sees the name it should reject |
+| `World/TerrainArrayTests.ToBytes_and_SetBytes_round_trip_a_3x3_array` | `TerrainArray.ToBytes`/`SetBytes` overrun the `(w*h)/8` buffer when `w*h` is not a multiple of 8 |
+| `World/EntityOutlineTests.NextID_never_returns_zero` | `Entity.NextID` hands out id 0 (the "no entity" outline value) after the `short` counter wraps |
+| `World/HealthAndHitscanTests.Setting_health_to_zero_before_the_entity_is_added_does_not_throw` | `HumanoidEntity.Health` setter calls `Level.OnEntityDeath` while `Level` is null |
+| `World/HealthAndHitscanTests.Hitscan_stops_at_an_entity_box_and_skips_the_ignored_entity` | `Entity.tCorner`/`bCorner` are only computed in the `Size` setter, so `Entity.TestPoint` tests a box around the origin |
+| `World/ExplosionTests.Explosion_at_the_entity_centre_gives_a_finite_velocity` | `Level.DrawCircle` normalises the zero vector: an explosion centred on an entity leaves its velocity NaN |
+| `Tools/ServerConfigTests.Parse_error_reports_the_one_based_line_number` | `ParseServerConfig` reports `"line " + l+1` (string concatenation) |
+| `Tools/MasterServerTests.EscapeUriString_escapes_reserved_characters` | `Util.EscapeUriString` returns the unescaped input |
+
+Other known original bugs are pinned by tests that assert the *current*
+behaviour instead, named after the quirk where it is the point of the test
+(`Tools/ServerConfigTests.Parse_error_reports_the_line_with_the_concatenation_quirk`,
+`Protocol/RejectionTests.Server_full_rejects_the_extra_login_and_precedes_every_other_check`
+for `IsFull` with `>`) or noted in a comment where a test has to live with it
+(the packets 110/120/121/122/98/22 that only leave with the next flushed
+packet, the doubled 41 for a taken flag). When such a bug is fixed, those
+tests are updated in the same commit.
+
+No e2e test is `xfail` at the moment.
+
+## Flaky quarantine
+
+Empty. A test that cannot be made deterministic within a reasonable effort
+is marked `Skip = "flaky: <reason>"` (xunit) or `@pytest.mark.skip(reason="flaky: ...")`
+and listed here with what was tried; until then every test in the suite is
+expected to pass on every run. Two tests were fixed rather than quarantined
+while integrating the areas:
+
+* `Protocol/CombatTests.Grappling_hook_fires_is_rate_limited_and_releases`
+  scanned seven fixed aim angles from the random spawn for terrain 80..400 px
+  away and failed for some spawns; it now sweeps the full circle in 1 degree
+  steps and picks the candidate nearest the middle of the window.
+* `World/ServerExplosionDamageTests.Explosion_damage_is_half_the_distance_ratio_...`
+  asserted `health > 99.9` for a point-blank explosion, but the settled
+  position's fractional part makes the distance anything below 1 px, so the
+  formula it had just asserted allows health down to 98.72; the bound is now
+  the one that follows from `d < 1`.
+
+Things not covered yet (from the area catalogues): e2e items E2E-12 (CLICK2
+sound on weapon select), E2E-14 (ammo HUD at clip 0), E2E-18 (Steam overlay
+callback), E2E-19 (forced scoreboard at game over via `maxcaptures`), E2E-20
+(blur/camera shake after an explosion), E2E-22 (StatusDialog Cancel while
+waiting), E2E-27 (MultiplayerView lobby); TOOLS-09's running-client half
+(`Identity.username`/`uid` in a real `VexillumGame`) and TOOLS-23's
+client-side `AssetManager` cache identity, which need a window; PHYS-33's
+"real client logs `Set terrain state`" clause; PHYS-29 runs headless
+(no stance instance on a real server).
 
 ## Reference hashes
 

@@ -141,17 +141,23 @@ namespace Vexillum.Acceptance.protocol
                 Vec2 rest = side.WaitForRest(alice, TimeSpan.FromSeconds(10));
                 Vec2 pivot = side.WeaponPivot(alice);
 
-                // an aim direction with terrain between 80 and 400 px away (UpdateCanGrapple needs it within 420 px)
+                // an aim direction with terrain between 80 and 400 px away (UpdateCanGrapple needs it
+                // within 420 px). The spawn is random, so sweep the full circle in 1 degree steps
+                // instead of trying a few fixed angles: the player rests on ground, and a shallow
+                // downward angle always meets that ground somewhere in the window. Take the
+                // candidate nearest the middle of the window so a bot wandering into the ray or
+                // a crater from its rockets cannot push the distance out of it.
                 float angle = float.NaN;
                 int distance = -1;
-                foreach (float cand in new float[] { 0f, (float)Math.PI, (float)(Math.PI / 4), (float)(3 * Math.PI / 4), (float)(-Math.PI / 4), (float)(-3 * Math.PI / 4), (float)(Math.PI / 2) })
+                TerrainSnapshot terrain = a.Terrain;
+                for (int deg = 0; deg < 360; deg++)
                 {
-                    int d = Ground.RayToTerrain(a.Terrain, pivot.X, pivot.Y, cand, 420);
-                    if (d >= 80 && d <= 400)
+                    float cand = (float)(deg * Math.PI / 180.0);
+                    int d = Ground.RayToTerrain(terrain, pivot.X, pivot.Y, cand, 420);
+                    if (d >= 80 && d <= 400 && (distance < 0 || Math.Abs(d - 240) < Math.Abs(distance - 240)))
                     {
                         angle = cand;
                         distance = d;
-                        break;
                     }
                 }
                 Assert.False(float.IsNaN(angle), "no terrain within 80..400 px around " + pivot);

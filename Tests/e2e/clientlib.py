@@ -40,6 +40,7 @@ KEYS = "Microsoft.Xna.Framework.Input.Keys"
 MB = "Nuclex.Input.MouseButtons"
 INV = "System.Globalization.CultureInfo.InvariantCulture"
 UNREACHABLE_HOST = "vexillum-e2e-no-such-host.invalid"   # fails DNS in ~50 ms; never a real server
+DEFAULT_PORT = 24224   # StreamHelper.DEFAULT_PORT, the game's fallback; tests only ever assert on it, never listen on it
 
 _instances = itertools.count(0)
 

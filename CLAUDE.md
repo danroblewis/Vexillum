@@ -242,6 +242,16 @@ and capture logs.
 26. Do not add analyzers, nullable annotations, `var`-everywhere rewrites,
     or LINQ-ification passes. Warnings are fine; the port is judged on
     behaviour, not on lint.
+27. Tests (`docs/TESTING.md`). A change in behaviour needs an acceptance
+    test (`Tests/Vexillum.Acceptance`) or an e2e test (`Tests/e2e`) that
+    exercises it; a test never edits historical code, and a test that
+    exposes a known original bug is skipped with the bug's name, not made
+    to pass. Every server a test starts runs in a scratch copy of `Test/`
+    on its own ports with `VEXILLUM_MASTER=off`. The e2e layer needs a
+    display (it opens real game windows). Run `make acceptance` (and
+    `make test`) before committing anything under `Game/`, `Server/` or
+    `Shims/`; `make e2e` when the change touches the client, the GUI or
+    the launcher.
 
 ## Claude tooling in this repo
 

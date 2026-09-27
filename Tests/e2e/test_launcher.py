@@ -10,7 +10,7 @@ import pytest
 
 import conftest as ct
 from conftest import wait_until
-from clientlib import (UNREACHABLE_HOST, desktop, dialog_texts, entity_state, launch_raw, lock_is_held, menu_visible,
+from clientlib import (DEFAULT_PORT, UNREACHABLE_HOST, desktop, dialog_texts, entity_state, launch_raw, lock_is_held, menu_visible,
                        new_runtime, press_desktop_button, server_humans, start_client, start_server, username,
                        view_name, wait_menu, wait_view)
 
@@ -45,8 +45,8 @@ def test_root_and_connect_arguments_stdout_echo_and_log_location(tmp_path):
     real_rt = str(rt.resolve())          # the process reports the real path (/private/var/... on macOS)
     other_cwd = tmp_path / "elsewhere"
     other_cwd.mkdir()
-    for target, expected in ((UNREACHABLE_HOST, f"{UNREACHABLE_HOST}:24224"),          # no colon: DEFAULT_PORT
-                             (UNREACHABLE_HOST + ":abc", f"{UNREACHABLE_HOST}:24224")):  # unparsable port: DEFAULT_PORT
+    for target, expected in ((UNREACHABLE_HOST, f"{UNREACHABLE_HOST}:{DEFAULT_PORT}"),          # no colon: DEFAULT_PORT
+                             (UNREACHABLE_HOST + ":abc", f"{UNREACHABLE_HOST}:{DEFAULT_PORT}")):  # unparsable port: DEFAULT_PORT
         p = launch_raw(["--root", str(rt), "--connect", target, "--bogus"], cwd=other_cwd)
         try:
             line = p.wait_log(r"PortProgram: cwd=", 20).splitlines()[-1]

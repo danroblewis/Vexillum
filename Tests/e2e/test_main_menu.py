@@ -11,7 +11,7 @@ import pytest
 
 import conftest as ct
 from conftest import wait_until, region_stats
-from clientlib import (KEYS, UNREACHABLE_HOST, buttons, connect, cs_window, desktop, dialog_texts, entity_state,
+from clientlib import (DEFAULT_PORT, KEYS, UNREACHABLE_HOST, buttons, connect, cs_window, desktop, dialog_texts, entity_state,
                        menu_click, menu_visible, new_runtime, press_desktop_button, press_window_button, server_humans,
                        shot, start_client, start_server, username, wait_view, window_open, window_region)
 
@@ -235,17 +235,17 @@ def test_direct_ip_join_dialog_defaults_port_fallback_and_join(scratch_runtime):
         info = c.ev(f'Sync(() => {{ var w = (Nuclex.UserInterface.Controls.Desktop.WindowControl){cs_window("IPJoinDialog")}; '
                     'return w.Title + "|" + ((Nuclex.UserInterface.Controls.Desktop.InputControl)Get(w, "ipBox")).Text + "|" + ((Nuclex.UserInterface.Controls.Desktop.InputControl)Get(w, "portBox")).Text'
                     ' + "|" + w.Bounds.Size.X.Offset + "x" + w.Bounds.Size.Y.Offset + "|" + w.Bounds.Left.Fraction + "/" + w.Bounds.Left.Offset + "|" + w.Bounds.Top.Fraction + "/" + w.Bounds.Top.Offset; })')
-        assert info == "Connect to Server|127.0.0.1|24224|400x65|0.5/-200|0.5/-65"
+        assert info == f"Connect to Server|127.0.0.1|{DEFAULT_PORT}|400x65|0.5/-200|0.5/-65"
 
-        # a non-numeric port falls back to DEFAULT_PORT (24224). The host is one that fails DNS at once,
-        # so the run never touches a real server on 24224 (docs/TESTING.md: never hard-code that port).
+        # a non-numeric port falls back to DEFAULT_PORT. The host is one that fails DNS at once,
+        # so the run never touches a real server on that port (docs/TESTING.md: never hard-code it).
         c.ev(f'Sync(() => {{ var w = {cs_window("IPJoinDialog")}; ((Nuclex.UserInterface.Controls.Desktop.InputControl)Get(w, "ipBox")).Text = "{UNREACHABLE_HOST}"; '
              f'((Nuclex.UserInterface.Controls.Desktop.InputControl)Get(w, "portBox")).Text = "notanumber"; return "ok"; }})')
         press_window_button(c, "IPJoinDialog", "connectButton")
         # SetMenuVisible(false) closed the dialogs; the StatusDialog the client thread adds survives it
         kinds = [k for k, _ in desktop(c)]
         assert "ServerDialog" not in kinds and "IPJoinDialog" not in kinds
-        c.wait_log(r"Connecting to " + re.escape(UNREACHABLE_HOST) + ":24224", 10)
+        c.wait_log(r"Connecting to " + re.escape(UNREACHABLE_HOST) + ":" + str(DEFAULT_PORT), 10)
         c.wait_log(r"Disconnected: Could not connect to the server\.", 15)
         wait_until(lambda: dialog_texts(c, "ErrorDialog") == ["Could not connect to the server."], 5)
         assert menu_visible(c)
