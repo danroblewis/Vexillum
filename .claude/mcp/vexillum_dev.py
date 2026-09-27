@@ -558,6 +558,9 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
     rt = ROOT / runtime_dir
     started_at = time.time() - 1
     slog = SCRATCH / "smoke-server.log"
+    # --port rewrites Server/settings.txt; put the file back afterwards so the runtime dir stays pristine.
+    settings = rt / "Server" / "settings.txt"
+    settings_backup = settings.read_bytes() if settings.exists() else None
     sp = _launch(scmd + ["--port", str(port)], rt, slog, {})
     if not _wait_for(slog, "Ready for connections", min(20, seconds), sp):
         how = _stop(sp)
@@ -584,6 +587,8 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
     time.sleep(min(6, seconds // 4))
     shot = _screenshot("smoke") if any(cp.poll() is None for cp in cps) else ""
     chows = [_stop(cp) for cp in cps]; show = _stop(sp)
+    if settings_backup is not None:
+        settings.write_bytes(settings_backup)
     stext = slog.read_text(errors="ignore")
     ctexts = [c.read_text(errors="ignore") for c in clogs]
     dbg = rt / "debug_client.log"
