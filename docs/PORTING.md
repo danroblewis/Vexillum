@@ -415,6 +415,11 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
 ## Known original bugs (do not fix silently; log here and fix deliberately)
 
 * `Util.EscapeUriString` builds `sb` then returns the unescaped `value`.
+* `Util.ParseServerConfig` reports a bad line as `"line " + l+1`: string
+  concatenation, so the zero-based counter `l` and the literal `1` are
+  glued together (`line 11` for the second line, `line 01` for the first)
+  instead of the one-based number. Found by the acceptance tests
+  (`Tests/Vexillum.Acceptance/Tools/ServerConfigTests.cs`).
 * `ServerPlayer.SetMovement` compares `movement[2]` against `direction` and
   `movement[3]` against `jumping` (indices shifted by one) before assigning
   correctly; the net effect is that `movementChanged` fires too often.
