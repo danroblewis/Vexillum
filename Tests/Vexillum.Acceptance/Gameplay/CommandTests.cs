@@ -122,6 +122,69 @@ namespace Vexillum.Acceptance.servergameplay
             }
         }
 
+        // SRV-28 (known original bug, preserved): PlayerList.Save opens <list>.txt in the working directory with
+        // FileMode.Truncate while Load reads Server/<list>.txt, so no list change ever reaches the disk
+        [Fact]
+        public void Op_deop_ban_and_unban_change_the_lists_in_memory_only_and_never_the_files()
+        {
+            string opsFile = Path.Combine(fx.Runtime.ServerDir, "ops.txt");
+            string bannedFile = Path.Combine(fx.Runtime.ServerDir, "banned.txt");
+            string opsBefore = File.ReadAllText(opsFile), bannedBefore = File.ReadAllText(bannedFile);
+            Assert.False(File.Exists(Path.Combine(fx.Runtime.Root, "ops.txt")), "precondition: no ops.txt in the working directory");
+            Assert.False(File.Exists(Path.Combine(fx.Runtime.Root, "banned.txt")), "precondition: no banned.txt in the working directory");
+            string other = GameplayFixture.Unique("fred");
+            string ghost = GameplayFixture.Unique("ghost");
+            using (ScriptedClient a = fx.Join("alice"))
+            using (ScriptedClient f = fx.Join(other))
+            {
+                Assert.True(fx.IsOp("alice"));
+                Assert.False(fx.IsOp(other));
+                Assert.False(fx.Console.EvalT<bool>(BannedCheck(ghost)));
+                int opsErrors = fx.Server.Count("Error saving ops list");
+                int bannedErrors = fx.Server.Count("Error saving banned list");
+
+                // /op and /ban: the in-memory lists change, the save fails and is logged
+                int mF = f.PacketCount;
+                a.SendChat("/op " + other);
+                Assert.Equal(TextUtil.COLOR_ORANGE + "You're now an op!", f.WaitFor<ChatPacket>(null, TimeSpan.FromSeconds(5), mF).Text);
+                Assert.True(fx.IsOp(other));
+                Assert.True(fx.Server.WaitForCount("Error saving ops list", opsErrors + 1, TimeSpan.FromSeconds(5)), "ops save failure logged");
+                a.SendChat("/ban " + ghost);
+                GameplayFixture.WaitUntil(() => fx.Console.EvalT<bool>(BannedCheck(ghost)), TimeSpan.FromSeconds(5), ghost + " banned in memory");
+                Assert.True(fx.Server.WaitForCount("Error saving banned list", bannedErrors + 1, TimeSpan.FromSeconds(5)), "banned save failure logged");
+                // the failure is the Truncate open of a file that does not exist in the working directory
+                Assert.Contains("FileNotFoundException", fx.Server.Lines("Error saving ops list")[opsErrors]);
+                Assert.Contains("FileNotFoundException", fx.Server.Lines("Error saving banned list")[bannedErrors]);
+
+                // /deop and /unban save (and fail) the same way
+                mF = f.PacketCount;
+                a.SendChat("/deop " + other);
+                Assert.Equal(TextUtil.COLOR_ORANGE + "You're no longer an op!", f.WaitFor<ChatPacket>(null, TimeSpan.FromSeconds(5), mF).Text);
+                Assert.False(fx.IsOp(other));
+                Assert.True(fx.Server.WaitForCount("Error saving ops list", opsErrors + 2, TimeSpan.FromSeconds(5)), "second ops save failure logged");
+                a.SendChat("/unban " + ghost);
+                GameplayFixture.WaitUntil(() => !fx.Console.EvalT<bool>(BannedCheck(ghost)), TimeSpan.FromSeconds(5), ghost + " unbanned in memory");
+                Assert.True(fx.Server.WaitForCount("Error saving banned list", bannedErrors + 2, TimeSpan.FromSeconds(5)), "second banned save failure logged");
+
+                // the op still gates commands through the in-memory list: alice keeps her op from Server/ops.txt
+                int mA = a.PacketCount;
+                a.SendChat("/op " + other);
+                Assert.True(fx.Server.WaitForCount("Error saving ops list", opsErrors + 3, TimeSpan.FromSeconds(5)));
+                Assert.True(fx.IsOp(other));
+                Assert.True(a.NoneWithin<ChatPacket>(p => p.Text.EndsWith("You need to be op to do that!"), TimeSpan.FromSeconds(0.5), mA));
+
+                // nothing reached the disk: the Server/ lists are unchanged and no list file appeared in the working directory
+                Assert.Equal(opsBefore, File.ReadAllText(opsFile));
+                Assert.Equal(bannedBefore, File.ReadAllText(bannedFile));
+                Assert.DoesNotContain(other, File.ReadAllText(opsFile));
+                Assert.DoesNotContain(ghost, File.ReadAllText(bannedFile));
+                Assert.False(File.Exists(Path.Combine(fx.Runtime.Root, "ops.txt")), "no ops.txt written in the runtime root");
+                Assert.False(File.Exists(Path.Combine(fx.Runtime.Root, "banned.txt")), "no banned.txt written in the runtime root");
+                fx.Leave(f);
+                fx.Leave(a);
+            }
+        }
+
         // SRV-16 (known original bug: the loop compares the issuer's own name)
         [Fact(Skip = "Known original bug: Server.Chat /kick compares p.name (the issuer) instead of other.name, so /kick <other> never disconnects the target, docs/PORTING.md")]
         public void Kick_disconnects_the_named_player()
