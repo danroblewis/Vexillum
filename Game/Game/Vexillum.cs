@@ -95,7 +95,7 @@ namespace Vexillum
             Components.Add(input);
             Components.Add(gui);
             gui.DrawOrder = 1000;
-            this.Exiting += new EventHandler<EventArgs>(OnExit);
+            this.Exiting += new EventHandler<ExitingEventArgs>(OnExit); // PORT: MonoGame's Game.Exiting is EventHandler<ExitingEventArgs>; .NET Core's EventHandler<T> is not contravariant
 
             Settings.LoadSettings();
 

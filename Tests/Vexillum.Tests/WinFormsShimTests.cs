@@ -55,7 +55,7 @@ namespace Vexillum.Tests
         {
             // The historical Vexillum.util.KeyboardMessageFilter (with its
             // user32 TranslateMessage DllImport) must compile and register.
-            var filter = new Vexillum.util.KeyboardMessageFilter();
+            var filter = new global::Vexillum.util.KeyboardMessageFilter();
             Application.AddMessageFilter(filter);
             Assert.Contains(filter, Application.MessageFilters);
             Application.RemoveMessageFilter(filter);

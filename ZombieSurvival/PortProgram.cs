@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Vexillum.Port;
+using Vexillum.util;
 using Vexillum.view;
 
 namespace Vexillum

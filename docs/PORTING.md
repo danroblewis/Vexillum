@@ -46,7 +46,7 @@ extend it; replace it.
 | 6 | `Shims/Nuclex`: source port of Nuclex `Support`, `Input`, `UserInterface` to MonoGame (drop DirectInput/SlimDX, `NMock`, unit tests, `System.Windows.Forms` uses inside Nuclex.Input). `InputManager` reads MonoGame `Keyboard`/`Mouse` state and `Window.TextInput`. All original dialogs, `CustomInputControl(+Renderer)` and the Darkness skin then work unchanged. `Awesomium` files stay commented out as they are. | done (2026-09-27) | r1404 sources (GitHub mirror `remiomosowon/NuclexFramework`) vendored under `Shims/Nuclex/{Support,Input,UserInterface}` with `LICENSE-CPL.txt`; every library change is listed in `Shims/Nuclex/NUCLEX-PORT-NOTES.md`. One assembly (`Vexillum.Shims.Nuclex`). PC keyboard/mouse are new `MonoGameKeyboard`/`MonoGameMouse` devices (state diff per `Update()`, characters from `GameWindow.TextInput`, wheel in `delta/120` ticks, `(-1,-1)` on leaving the window); DirectInput, `WindowMessageFilter` and touch mocks dropped, the rest byte-for-byte r1404 (7 small edits, see notes). The embedded Suave default skin was extracted from the shipped DLL so `GuiManager.Initialize()` behaves as before. `Game` now has zero errors naming a Nuclex type (33 left: System.Drawing 29, WinForms 4). `Tests/Vexillum.Tests/NuclexShimTests.cs` (7 tests: UniRectangle layout, mouse press through `DefaultInputCapturer` -> `Pressed` + `IsInputCaptured`, keyboard into `InputControl`, embedded resources, `DarknessUI.xml` validates against `skin.xsd`) passes; it runs once `Game` builds. TODO: keyboard auto-repeat (`KeyPressed` once per physical press now; Windows repeated `WM_KEYDOWN`), and confirm at runtime that the XNA 4.0 Suave `.xnb` files load under MonoGame (guarded by try/catch). |
 | 7 | `Shims/System.Windows.Forms`: `MessageBox.Show` (logs + stderr), `KeysConverter`, `IMessageFilter`, `Message`, `Application.AddMessageFilter` (no-op). Original `Program.cs` files then compile; the `#if WINDOWS \|\| XBOX` in the client `Program.cs` is satisfied by defining `WINDOWS` in the new csproj (it is the author's constant, not a platform switch). New `--root/--connect` handling goes in a small `Launcher` wrapper project or a `// PORT:` block, owner's choice. | done (2026-09-27): WinForms shim + entry points | WinForms shim: `Shims/WinForms/{MessageBox,Application,KeysConverter,Controls}.cs`. `MessageBox.Show(text[, caption[, buttons]])` writes `[MessageBox] caption: text` to stderr and `Debug`, returns `DialogResult.OK`, never blocks. `Application.AddMessageFilter` keeps the filter in a list that nothing pumps, so `KeyboardMessageFilter.PreFilterMessage` (and its `user32` `TranslateMessage` DllImport) is never invoked; WM_CHAR text input must come from MonoGame `Window.TextInput` (step 6). `Application.Run(Form)` throws `NotSupportedException`. `Controls.cs` stubs `Control`/`ContainerControl`/`Form`/`TextBox`/`Button`/`Label` (over `System.ComponentModel.Component`, so `Dispose(bool)` and `IContainer` come from .NET) for `ServerStart`'s Designer code; `HostServerForm*.cs` and `Program.cs` compile against it except for one `System.Drawing.Icon` cast, which step 4 must provide. Tests: `Tests/Vexillum.Tests/WinFormsShimTests.cs`. Entry points: Neither `Program.cs` is edited. `ZombieSurvival/PortProgram.cs` (`<StartupObject>Vexillum.PortProgram`) and `Server/PortProgram.cs` (`<StartupObject>Server.PortProgram`) parse `--root <dir>` (chdir first), `--connect <host>:<port>` / `--port <n>`, `--help`, ignore unknown arguments, and invoke the author's non-public `Program.Main` through reflection, unwrapping `TargetInvocationException` and rethrowing with `ExceptionDispatchInfo` so the author's `UnhandledException` handler still runs and the process exits non-zero (verified on .NET 9: exit code 134 for main-thread and background-thread crashes). `VEXILLUM_LOG_STDOUT=1` adds a `ConsoleTraceListener` to `Trace.Listeners`, which verified empirically routes `Debug.Print` to stdout on .NET 9 (Debug builds only: `Debug.Print` is `[Conditional("DEBUG")]` and the SDK defines `DEBUG` for `-c Debug`; Release keeps only `debug_client.log`). No `// PORT:` edit in `Util.Debug` was needed. `--connect` starts a background thread that polls every 250 ms (60 s max) for `Vexillum.game.View is MainMenuView` with the menu visible (that assignment is the last thing `LoadContent` does) and then calls `game.ConnectWhenServerReady(host, port, 40)` on that thread, the same call `Client.cs` makes from its reader thread on packet 253. Two clients in one `--root` work because `Util.OpenLockFile` swallows the sharing violation. If `Program.Main` returns without creating the game (`SteamManager.Initialize()` false) the client exits 1 with a stderr line. Server: `Program.Main` returns after starting the threads; foreground threads keep a .NET 9 process alive (verified), and `PortProgram` additionally joins `Server.stepThread` (via reflection) so the exit is explicit, then flushes the log. Both files were compiled against stubs of the touched members (`Program`, `Util`, `Vexillum`, `AbstractView`, `MainMenuView`, `Menu.visible`, `Server.running`/`stepThread`); the real build waits on steps 4-6. |
 | 8 | Content: keep `.xnb` fonts/sounds. `Blur.xnb` is XNA DX9 bytecode and cannot load; MonoGame's `mgfxc` needs Wine, which is banned. Reproduce the blur without a shader: `Blur.fx` computes `(tex(uv) + tex(uv + d)) / 2`, so draw the render target twice at half alpha, the second copy offset by `d * targetSize`, with an additive blend, inside the MonoGame `Effect` shim (`Shims/XnaCompat/Effect`) or a `// PORT:` edit in `GameView.LoadShaders`/`DrawStuff`. Content name `Blur` stays. | done (2026-09-27), zero edits to `GameView.cs` | The author's `Content.Load<Effect>("Blur")` now loads the shipped `Test/Content/Blur.xnb` unchanged. `ContentTypeReaderManager.LoadAssetReaders` looks the XNB's reader string up in its type-creator table *before* resolving the type, so `Vexillum.Port.XnaEffectContent.Register()` (`Shims/XnaCompat/Content/XnaEffectContent.cs`, called by `PortProgram` before `Program.Main`) registers a creator for the XNA string `Microsoft.Xna.Framework.Content.EffectReader, Microsoft.Xna.Framework.Graphics, Version=4.0.0.0, ...`. That reader skips the DX9 bytecode and returns `new Effect(device, BlurMgfx.Bytes)`, an MGFX v10 / OpenGL-profile blob assembled in code (`BinaryWriter`, layout from `Effect.ReadEffect` and `Shader(BinaryReader)` in 3.8.4): on DesktopGL an MGFX shader is GLSL *source*, so no `mgfxc` and no Wine. The pixel shader is `Blur.fx` transcribed to GLSL (`(tex(uv) + tex(uv + d)) / 2`, alpha from `tex(uv)`), with the uniform/varying names MonoGame's own `SpriteEffect` vertex shader uses (`vTexCoord0`, `vFrontColor`, `ps_s0`, `ps_uniforms_vec4[]`), because `GameView.DrawStuff` applies the pass inside an Immediate-mode `SpriteBatch` (the XNA idiom), and MonoGame's `SpriteBatch` behaves the same way (verified in the decompiled 3.8.4 `SpriteBatch`/`SpriteBatcher`/`EffectPass`). `Parameters["d"]` is a `Vector`/`Single` 1x2 parameter, technique `Desaturate`, pass `Pass1`. Verified on this Mac with a scratch MonoGame app that loaded the real `Blur.xnb` through the reader and ran the exact `DrawStuff` sequence into a render target: `d = 0` gives 529200/529200 pixels identical to the source, non-zero `d` gives the point-sampled shifted average with max error 1/255 (rounding of `.5`), alpha stays 255, and a plain batch afterwards draws normally. The two-draw fallback is documented in the open TODOs with the corrected tint/blend maths in case a driver rejects the GLSL. |
-| 9 | Server on `net9.0`: no graphics device; `Util.IsServer` paths already skip texture loads. `ServerStart` compiles against the WinForms shim but is not shipped; default `settings.txt` creation moves to launcher code. `Heartbeat`/`HttpGet` must time out quietly (`HttpWebRequest` still exists in .NET 9, obsolete but functional; `Timeout = 10000` is already set). | startup part done (2026-09-27); headless run still to verify | `Server/PortProgram.cs` creates `Server/settings.txt` from a verbatim copy of `HostServerForm.defaultConfig` when it is missing and rewrites only the `port` line when `--port` differs from the file (the MCP tools pass 24224, which matches the checked-in `Test/Server/settings.txt`, so it is not modified). `ServerStart` stays out of the solution. Still to verify once `Game` builds: `Server` runs with no graphics device (`Util.IsServer` paths), `Heartbeat.Send` fails quietly offline, `Ready for connections` appears. |
+| 9 | Server on `net9.0`: no graphics device; `Util.IsServer` paths already skip texture loads. `ServerStart` compiles against the WinForms shim but is not shipped; default `settings.txt` creation moves to launcher code. `Heartbeat`/`HttpGet` must time out quietly (`HttpWebRequest` still exists in .NET 9, obsolete but functional; `Timeout = 10000` is already set). | done (2026-09-27) | `Server/PortProgram.cs` creates `Server/settings.txt` from a verbatim copy of `HostServerForm.defaultConfig` when it is missing and rewrites only the `port` line when `--port` differs from the file (the MCP tools pass 24224, which matches the checked-in `Test/Server/settings.txt`, so it is not modified). `ServerStart` stays out of the solution. Verified at integration (2026-09-27) with the MCP `run_server` tool from `Test/`: `PortProgram: cwd=.../Test`, `Loading level...`, `Ready for connections`, then the master-server heartbeat fails with a DNS `WebException` that the author's own `catch` writes to `Server/debug_server.log` (`Error contacting the master server`); no graphics device, no window, clean SIGTERM exit. |
 | 10 | Runtime directory: `dotnet run` for client and server must use `Test/` (or a copy) as working directory; document in the run skill. Add `Content/`, `Maps/`, `Server/` copy-to-output or a `--root` argument. | done (2026-09-27) | `--root <dir>` on both entry points (`Directory.SetCurrentDirectory` before anything else; default: current directory). One MonoGame difference had to be handled: `ContentManager` resolves `Content.RootDirectory` against `TitleContainer.Location` = the executable's directory (on macOS `../Resources` of it first), not the current directory, so with `dotnet VexillumGame.dll --root Test` every `Content.Load` would look in `bin/Debug/net9.0/Content`. `Vexillum.Port.RuntimeDirectory.UseCurrentDirectoryForContent()` (`Shims/XnaCompat/Content/RuntimeDirectory.cs`) sets the internal `TitleContainer.Location` property to the current directory by reflection (verified on 3.8.4; the client logs a warning if the property is gone) so `Content/`, `Maps/`, `Server/`, `settings.xml`, `controls.xml` and the Nuclex skin all resolve under `--root`. No copy-to-output; `Test/` stays the single runtime directory. |
 | 11 | Smoke test on loopback: server up, client connects with the random identity, reaches packet 9, moves, fires, terrain deforms, disconnect clean. Automate through the MCP `smoke_test` tool. | todo | |
 | 12 | Cleanup: remove `lib/MonoGame`, `dlls/`, `BUILD_NOTES.md`, `build.sh`, `Icons.res` references, `.DS_Store` files; update `README.md` build section. | todo | Keep `Test/*.exe` as the reference build. |
@@ -86,16 +86,31 @@ extend it; replace it.
 
 ## Open TODOs left by steps 7, 8, 10 (2026-09-27) — for the integration agent
 
-* **Build**: `Vexillum.sln` still fails with the step-3 baseline of 132 errors,
-  all in `Game` (Nuclex 113, System.Drawing 15, WinForms 4); nothing in
-  `PortProgram.cs`, `XnaEffectContent.cs` or `RuntimeDirectory.cs` is on the
-  list (`Shims/XnaCompat` builds; the two `PortProgram.cs` files compile
-  against stubs). After steps 4-6 land, build the solution and verify:
-  * `ZombieSurvival/Vexillum.csproj` and `Server/Server.csproj` differ from
-    step 1 only by `<StartupObject>`; the author's `Program` classes are
-    non-public and reflection finds `Main` (`BindingFlags.NonPublic |
-    Static`). If the Nuclex port makes `Program.cs` need anything else, keep
-    it in the csproj, not in `Program.cs`.
+* **Build (done at integration, 2026-09-27)**: after merging steps 4-7
+  (`Drawing`, `Steamworks`, `WinForms`, `Nuclex`, entry points) into
+  `port/monogame`, `dotnet build Vexillum.sln` reports 0 errors and 0 warnings
+  for all 14 projects (`Lzma`, `MapTools`, `CreateMap`, `ExtractMap`,
+  `PlatformWindows`, five `Shims/*`, `Game`, `Server`, `Vexillum` client,
+  `Vexillum.Tests`). Exactly one historical line had to change, because no shim
+  can reach it: `Game/Game/Vexillum.cs:98` subscribes `OnExit` with
+  `new EventHandler<ExitingEventArgs>(OnExit)` (`// PORT:`), since MonoGame's
+  `Game.Exiting` is `EventHandler<ExitingEventArgs>` and .NET Core's
+  `EventHandler<T>` lost the `in` contravariance that XNA/.NET 4.5 had (a
+  scratch program confirmed `EventHandler<EventArgs>` -> `EventHandler<X>` is
+  CS0029 on net9.0). Two non-historical fixes: `ZombieSurvival/PortProgram.cs`
+  needed `using Vexillum.util;` for `VexillumConstants`, and
+  `WinFormsShimTests.cs` needed `global::Vexillum.util` because `Vexillum`
+  inside `namespace Vexillum.Tests` binds to the class. `dotnet test
+  Tests/Vexillum.Tests`: 31/31 pass with the `Game` reference, including the
+  new `LevelTerrainTests.cs`, which loads `bases.map` and `complex.map` with
+  the real `LevelLoader.LoadData` (`Util.IsServer = true`, cwd = `Test/`),
+  runs the real `Level` constructor through a minimal concrete subclass and
+  matches the oracle SHA-256 of `GetTerrainState()` for both maps
+  (`059ee417...` and `d5d14f4c...`), then round-trips `SetTerrainState`.
+  `invariant_check` OK (32 checks), `preservation_check` reports only the one
+  `// PORT:` line plus the two `PortProgram.cs` additions. Still to do at
+  runtime: `run_client --connect`, `smoke_test` (step 11), visual check of the
+  blur and the Nuclex skin.
 * **Steam gate**: the author's client `Main` returns (and `PortProgram` exits
   1 with "Vexillum did not start") unless `SteamManager.Initialize()` is true.
   The current `Shims/Steamworks` stub has `SteamAPI.Init()` returning `false`
@@ -162,30 +177,55 @@ extend it; replace it.
 * **Steam:** the `Steamworks` namespace is shimmed offline; the names match
   Steamworks.NET so a real integration can return later without edits.
 
-## Hazard inventory (2026-09-27)
+## Hazard inventory (2026-09-27, refreshed after integration)
 
-Run the `port_audit` MCP tool for the live list. Snapshot of files by hazard:
+Run the `port_audit` MCP tool for the live list. After steps 1-10 every
+hazard class **resolves to a shim or the source port**; the audit counts
+references, not failures. Latest summary: `PORT AUDIT: 237 source hazards in
+54 files; 3 project-file hazards` (the three project-file hazards are all
+`ZombieSurvivalContent/VexillumContent.contentproj`, the unbuilt XNA content
+project; the count rose from 189 because the new `Tests/Vexillum.Tests/*.cs`
+files name the shimmed namespaces on purpose).
 
-* `System.Drawing`: Util, GraphicsHelper, Level, LevelLoader, ClientLevel,
-  MenuLevel, ScrollPanel, ChatPanel, net/Client (one `Color.Red`),
-  TextRenderer, view/AssetManager, view/TerrainParticle, Server/ServerLevel,
-  MapTool/MapCreator, ServerStart/*.
-* `System.Windows.Forms`: Vexillum (MessageBox, message filter), util/KeyboardMessageFilter,
-  ui/KeySelectorControl (`KeysConverter`), ZombieSurvival/Program, ServerStart/*.
-* `Nuclex`: Vexillum, Util, LocalPlayer, all `ui/*Dialog`, ui/Menu,
-  ui/CustomInputControl(+Renderer), ui/KeySelectorControl, ui/WebControl(+Renderer),
-  view/AbstractView, view/GameView, view/MenuView, view/MultiplayerView,
-  Entities/Weapons/{Weapon,SMG,RocketLauncher,ClusterBombLauncher} (`MouseButtons` only).
-* `Steamworks`: SteamworksStub, Vexillum, steam/*, net/Client, ui/MainMenu,
-  game/Identity, Server/ServerSteamAPI, Server/ServerPlayer.
+* `System.Drawing` (18 files, 72 hits -> `Shims/Drawing`): Util, GraphicsHelper,
+  Level, LevelLoader, ClientLevel, MenuLevel, ScrollPanel, ChatPanel,
+  net/Client (one `Color.Red`), TextRenderer, view/AssetManager,
+  view/TerrainParticle, Server/ServerLevel, MapTool/MapCreator, ServerStart/*
+  (not built), tests.
+* `System.Windows.Forms` (8 files, 18 hits -> `Shims/WinForms`): Vexillum
+  (MessageBox, message filter), util/KeyboardMessageFilter,
+  ui/KeySelectorControl (`KeysConverter`), ZombieSurvival/Program, ServerStart/*
+  (not built), tests.
+* `Nuclex` (25 files, 85 hits -> `Shims/Nuclex` source port): Vexillum, Util,
+  LocalPlayer, all `ui/*Dialog`, ui/Menu, ui/CustomInputControl(+Renderer),
+  ui/KeySelectorControl, view/AbstractView, view/GameView, view/MenuView,
+  view/MultiplayerView, Entities/Weapons/{Weapon,SMG,RocketLauncher,
+  ClusterBombLauncher} (`MouseButtons` only), tests.
+* `Steamworks` (9 files, 52 hits -> `Shims/Steamworks`, offline): Vexillum,
+  steam/*, net/Client, ui/MainMenu, game/Identity, Server/ServerSteamAPI,
+  Server/ServerPlayer, tests.
 * `Awesomium` + `unsafe`: ui/XNASurface, ui/WebControl, ui/WebControlRenderer
   (all fully commented out already).
-* XNA namespaces gone in MonoGame: `GamerServices` (Vexillum, three weapons,
-  ZombieSurvival), `Storage` (ControlSystem), `Media` (harmless, exists in MonoGame).
-* `DllImport`: util/KeyboardMessageFilter.
-* Hard-coded paths: `ZombieSurvival/Vexillum.csproj` `Win32Resource` points at
-  `C:\Users\Jacob\...`; content project references `..\..\ExEnFontShim` and a
-  Nuclex binaries folder outside the repo.
+* XNA namespaces gone in MonoGame (-> `Shims/XnaCompat`): `GamerServices`
+  (Vexillum, three weapons, ZombieSurvival), `Storage` (ControlSystem),
+  `Media` (harmless, exists in MonoGame).
+* `DllImport`: util/KeyboardMessageFilter (inert: the WinForms shim never pumps
+  message filters).
+* `Process.Start` of sibling exes: ui/ServerDialog, ServerStart/HostServerForm
+  (runtime concern only; TODO for step 11/12).
+* Hard-coded paths: the author's `Win32Resource` (`C:\Users\Jacob\...`) is
+  not carried into the new csproj; the content project references
+  `..\..\ExEnFontShim` and a Nuclex binaries folder outside the repo.
+
+### `// PORT:` edits to historical files (complete list)
+
+| File:line | Change | Reason |
+|---|---|---|
+| `Game/Game/Vexillum.cs:98` | `new EventHandler<EventArgs>(OnExit)` -> `new EventHandler<ExitingEventArgs>(OnExit)` | MonoGame's `Game.Exiting` is `EventHandler<ExitingEventArgs>`; .NET Core's `EventHandler<T>` is not contravariant, so the XNA-era delegate object cannot convert and no shim can intercept an event on MonoGame's own `Game` class. `OnExit(object, EventArgs)` itself is unchanged. |
+
+New non-historical files inside historical directories (flagged by
+`preservation_check` as ADDED, not edits): `Server/PortProgram.cs`,
+`ZombieSurvival/PortProgram.cs` (step 7 entry points).
 
 ## Known original bugs (do not fix silently; log here and fix deliberately)
 
