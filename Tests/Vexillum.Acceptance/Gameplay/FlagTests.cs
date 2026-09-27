@@ -163,6 +163,43 @@ namespace Vexillum.Acceptance.servergameplay
             }
         }
 
+        // SRV-26 (known original bug, preserved): TakeFlag calls RemoveFlag and then level.TakeFlag -> RemoveFlag
+        // again, so the flag entity's removal (41) is sent twice to every client
+        [Fact]
+        public void Taking_a_flag_sends_its_entity_removal_twice_to_every_client()
+        {
+            using (Trio t = new Trio(fx))
+            {
+                int flagId = Assert.Single(fx.FlagEntityIds(t.EnemyFlagType));
+                ScriptedClient[] all = new ScriptedClient[] { t.Taker, t.Mate, t.Enemy };
+                int[] marks = new int[] { t.Taker.PacketCount, t.Mate.PacketCount, t.Enemy.PacketCount };
+                fx.CollideWithFlag(t.Taker.Name, t.EnemyTeam);
+                Assert.Equal(t.Taker.Name, fx.FlagCarrier(t.TakerTeam));
+
+                for (int i = 0; i < all.Length; i++)
+                {
+                    ScriptedClient c = all[i];
+                    int mark = marks[i];
+                    GameModeShortPacket carrier = c.WaitFor<GameModeShortPacket>(p => p.Command == t.CarrierCommand && p.Value == t.Taker.MyEntityId, TimeSpan.FromSeconds(5), mark);
+                    Assert.NotNull(carrier);
+                    GameplayFixture.WaitUntil(() => c.Packets<EntityRemovePacket>(mark).FindAll(p => p.EntityId == flagId).Count >= 2,
+                        TimeSpan.FromSeconds(5), c.Name + " receives the second removal of flag #" + flagId);
+                    // and no third one follows
+                    Thread.Sleep(500);
+                    List<EntityRemovePacket> removals = c.Packets<EntityRemovePacket>(mark).FindAll(p => p.EntityId == flagId);
+                    Assert.Equal(2, removals.Count);
+                    Assert.True(removals[0].Sequence < carrier.Sequence, "the first removal precedes the carrier command");
+                    Assert.Equal(removals[0].Frame, removals[1].Frame);
+                    Assert.Null(c.ReaderError);
+                }
+                // the double removal is harmless: the level still runs and the flag is simply gone
+                Assert.True(fx.Console.ServerReady(), "server still ready");
+                Assert.Empty(fx.FlagEntityIds(t.EnemyFlagType));
+                Assert.False(fx.FlagInLevel(t.EnemyTeam));
+                Assert.Equal(3, fx.HumanCount());
+            }
+        }
+
         // SRV-06 (scoring part; the win is in FlagWinTests)
         [Fact]
         public void Bringing_the_enemy_flag_home_scores_a_capture_and_three_points()
