@@ -17,18 +17,18 @@ must stay clean).
 ## Counts and status
 
 Last full run of every layer on this branch (macOS arm64, .NET 9, MonoGame
-3.8.4). The acceptance suite was run three times in a row with identical
+3.8.4). The acceptance suite was run twice in a row with identical
 results; the skips are the known original bugs listed further down.
 
 | layer | area (namespace / folder) | tests | pass | skip | run only this area |
 |---|---|---|---|---|---|
 | unit | `Vexillum.Tests` | 31 | 31 | 0 | `make test` |
 | acceptance | harness self-tests (`Vexillum.Acceptance.*SelfTests`, `KnownServerBugs`) | 14 | 13 | 1 | `--filter "FullyQualifiedName~SelfTests"` |
-| acceptance | protocol (`Vexillum.Acceptance.protocol`, `Protocol/`) | 66 | 63 | 3 | `--filter "FullyQualifiedName~Acceptance.protocol"` |
-| acceptance | server gameplay (`Vexillum.Acceptance.servergameplay`, `Gameplay/`) | 43 | 41 | 2 | `--filter "FullyQualifiedName~servergameplay"` |
+| acceptance | protocol (`Vexillum.Acceptance.protocol`, `Protocol/`) | 71 | 67 | 4 | `--filter "FullyQualifiedName~Acceptance.protocol"` |
+| acceptance | server gameplay (`Vexillum.Acceptance.servergameplay`, `Gameplay/`) | 46 | 44 | 2 | `--filter "FullyQualifiedName~servergameplay"` |
 | acceptance | physics and terrain (`Vexillum.Acceptance.physicsterrain`, `World/`) | 81 | 75 | 6 | `--filter "FullyQualifiedName~physicsterrain"` |
 | acceptance | tools and config (`Vexillum.Acceptance.toolsconfig`, `Tools/`) | 82 | 80 | 2 | `--filter "FullyQualifiedName~toolsconfig"` |
-| **acceptance** | **all** (`make acceptance`, about 3 minutes) | **286** | **272** | **14** | |
+| **acceptance** | **all** (`make acceptance`, about 3 minutes) | **294** | **279** | **15** | |
 | e2e | `Tests/e2e/test_*.py` (launcher, main menu, movement, weapons, chat/HUD, session, spectator, terrain rendering, harness smoke) | 41 | 41 | 0 xfail | `make e2e` (about 4 minutes, opens windows) |
 
 (`dotnet test` counts theory cases: the 73 `[Fact]`/`[Theory]` methods of
