@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Offline stand-in for Steamworks.NET (docs/PORTING.md step 5). Type and
+       member names match Steamworks.NET so a real integration can return
+       later without editing the game sources. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Shims.Steamworks</AssemblyName>
+    <RootNamespace>Steamworks</RootNamespace>
+  </PropertyGroup>
+</Project>

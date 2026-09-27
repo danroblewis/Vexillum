@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- XNA 4.0 namespaces that MonoGame does not ship. The original files keep
+       their "using" lines; each namespace here holds one internal placeholder
+       type so the compiler accepts the directive. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Shims.XnaCompat</AssemblyName>
+    <RootNamespace>Microsoft.Xna.Framework</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
+  </ItemGroup>
+</Project>

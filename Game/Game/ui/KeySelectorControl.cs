@@ -11,7 +11,7 @@ namespace Vexillum.ui
     {
         public Keys Key = Keys.None;
         private static System.Windows.Forms.KeysConverter kc = new System.Windows.Forms.KeysConverter();
-        protected new bool OnKeyPressed(Keys keyCode)
+        protected override bool OnKeyPressed(Keys keyCode)
         {
             if (!HasFocus)
                 return false;

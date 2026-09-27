@@ -1,0 +1,24 @@
+<Project>
+  <!-- Shared settings for the MonoGame port (docs/PORTING.md step 1).
+       The historical .cs files under Game/, Server/, ... are compiled as-is;
+       nothing in here changes their behaviour. -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningLevel>1</WarningLevel>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <!-- The projects carry their own Properties/AssemblyInfo.cs. -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <RollForward>Major</RollForward>
+    <Deterministic>true</Deterministic>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0414;CS0649;CS0108;CS0618;CS1717;CS0162;CS0169;CS0067</NoWarn>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <MonoGameVersion>3.8.4</MonoGameVersion>
+  </PropertyGroup>
+</Project>

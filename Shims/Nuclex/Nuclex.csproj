@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Source port of the Nuclex Framework (Support, Input, UserInterface) to
+       MonoGame, minus DirectInput/SlimDX and the test code (docs/PORTING.md
+       step 6). Nuclex is CPL licensed; keep its notice with the sources. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Shims.Nuclex</AssemblyName>
+    <RootNamespace>Nuclex</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
+  </ItemGroup>
+</Project>
