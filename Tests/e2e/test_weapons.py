@@ -189,18 +189,34 @@ def test_grappling_hook_fires_locks_movement_and_releases_on_w(lone_server, lone
             break
     assert st["canGrapple"] is True, "no grapple target around the spawn"
     act(c, cs_press("F") + cs_release("F"))
-    # packet 42 creates the hook on the client; it auto-releases once the player is pulled to it,
-    # so everything that needs the attached hook happens in one update tick below
-    hooked = wait_until(lambda: s if (s := entity_state(c))["hook"] else None, 3, interval=0.01, message="no hook arrived (packet 22/42)")
-    assert hooked["hook"].startswith("GrapplingHook#")
-    assert [e for e in server_entities(lone_server) if e["type"] == "GrapplingHook"]
-    r = c.ev(f'Sync(() => {{ var v = (GameView)Game.View; var p = (LocalPlayer)Get(v, "player"); var e = p.Entity; if (e.hook == null) return "released"; '
-             f'float xv0 = e.xVelocity; v.KeyPressed(Microsoft.Xna.Framework.Input.Keys.D, true); string s = (e.xVelocity == xv0) + "|" + e.moving; v.KeyReleased(Microsoft.Xna.Framework.Input.Keys.D); '
-             f'var v0 = e.Velocity; v.KeyPressed(Microsoft.Xna.Framework.Input.Keys.W, true); v.KeyReleased(Microsoft.Xna.Framework.Input.Keys.W); '
-             f'return s + "|" + (e.hook == null) + "|" + (e.Velocity == v0 * 0.5f); }})')
-    if r == "released":
-        pytest.skip("the hook pulled the player in before the test could act (timing); rerun")
-    assert r == "True|False|True|True", r
+    # the server creates the hook entity first (packets 22/42 follow) and keeps it until the player is pulled in
+    # or releases it, so its existence is checked before the client-side release below
+    wait_until(lambda: [e for e in server_entities(lone_server) if e["type"] == "GrapplingHook"] or None, 3, interval=0.05,
+               message="the server created no GrapplingHook entity after packet 11 (255)")
+    # packet 42 attaches the hook on the client and it auto-releases once the player is pulled in, so observing
+    # the attached hook and acting on it happen inside ONE Sync (one update tick): D while hooked, then W releases.
+    # Until the hook is attached the script returns "nohook|<state>" and is simply retried; a hook that never shows
+    # (or came and went between two polls) fails with the last observed state, it is never skipped.
+    K = "Microsoft.Xna.Framework.Input.Keys"
+    hook_act = ('Sync(() => { var v = (GameView)Game.View; var p = (LocalPlayer)Get(v, "player"); var e = p.Entity; '
+                'if (e.hook == null) return "nohook|x=" + e.Position.X + "|y=" + e.Position.Y + "|vx=" + e.Velocity.X + "|vy=" + e.Velocity.Y; '
+                'string hook = e.hook.GetType().Name + "#" + e.hook.ID; float xv0 = e.xVelocity; '
+                f'v.KeyPressed({K}.D, true); string s = (e.xVelocity == xv0) + "|" + e.moving; v.KeyReleased({K}.D); '
+                f'var v0 = e.Velocity; v.KeyPressed({K}.W, true); v.KeyReleased({K}.W); '
+                'return hook + "|" + s + "|" + (e.hook == null) + "|" + (e.Velocity == v0 * 0.5f); })')
+    deadline = time.time() + 3
+    r = c.ev(hook_act)
+    while r.startswith("nohook"):
+        assert time.time() < deadline, (f"the hook never showed as attached on the client (packet 22/42); last state {r}; "
+                                        f"server hooks {[e for e in server_entities(lone_server) if e['type'] == 'GrapplingHook']}")
+        time.sleep(0.01)
+        r = c.ev(hook_act)
+    hook, same_xv, moving, released, halved = r.split("|")
+    assert hook.startswith("GrapplingHook#"), r
+    assert same_xv == "True", r        # D while hooked: guard entity.hook == null, xVelocity unchanged
+    assert moving == "False", r
+    assert released == "True", r       # W while hooked: SetGrapplingHook(null) ...
+    assert halved == "True", r         # ... Velocity *= 0.5, then packet 11 (254, 0)
     wait_until(lambda: not [e for e in server_entities(lone_server) if e["type"] == "GrapplingHook"], 3,
                message="the server did not remove the hook after packet 11 (254)")
     assert server_player(lone_server, name)["hook"] == ""

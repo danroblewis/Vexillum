@@ -2,6 +2,8 @@
 --connect timing and timeout, Exit from the menus, two clients from one runtime directory."""
 import os
 import re
+import socket
+import threading
 import time
 
 import pytest
@@ -128,6 +130,72 @@ def test_connect_times_out_cleanly_when_no_server_answers(scratch_runtime):
         c.stop()
 
 
+class _NotReadyServer:
+    """A TCP listener that answers every status probe (byte 255, docs/PROTOCOL.md) with ready=false
+    and records the time and first byte of each probe, so the client's poll loop can be counted."""
+
+    def __init__(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen(8)
+        self.sock.settimeout(0.2)
+        self.port = self.sock.getsockname()[1]
+        self.probes = []
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self._serve, daemon=True)
+        self.thread.start()
+
+    def _serve(self):
+        while not self.stop.is_set():
+            try:
+                conn, _ = self.sock.accept()
+            except socket.timeout:
+                continue
+            with conn:
+                conn.settimeout(2)
+                try:
+                    first = conn.recv(1)
+                except OSError:
+                    first = b""
+                self.probes.append((time.time(), first))
+                try:
+                    conn.sendall(b"\x00")          # BinaryReader.ReadBoolean() -> false: keep polling
+                except OSError:
+                    pass
+
+    def close(self):
+        self.stop.set()
+        self.thread.join(2)
+        self.sock.close()
+
+
+# E2E-08 (b): the exact poll schedule, observed from the server side of the probe
+@pytest.mark.e2e
+def test_connect_polls_the_server_status_40_times_every_500_ms_before_timing_out(scratch_runtime):
+    fake = _NotReadyServer()
+    c = start_client(scratch_runtime, connect=f"127.0.0.1:{fake.port}", wait_seconds=1, wait_game=False)
+    try:
+        c.wait_log(r"PortProgram: main menu ready after \d+ ms, connecting to 127\.0\.0\.1:" + str(fake.port), 20)
+        texts = wait_until(lambda: dialog_texts(c, "ErrorDialog") or None, 40, interval=0.5,
+                           message="no 'Connection timed out.' dialog")
+        assert texts == ["Connection timed out."]
+        time.sleep(1.0)                                    # a 41st probe would arrive within 500 ms
+        probes = list(fake.probes)
+        assert len(probes) == 40, len(probes)              # ConnectWhenServerReady(host, port, 40)
+        assert all(first == b"\xff" for _, first in probes), [first for _, first in probes]
+        gaps = [round(b[0] - a[0], 3) for a, b in zip(probes, probes[1:])]
+        assert all(0.45 <= g <= 0.9 for g in gaps), gaps    # Thread.Sleep(500) between probes
+        assert 19 <= probes[-1][0] - probes[0][0] <= 23, probes[-1][0] - probes[0][0]
+        assert c.ev("Game.waitingForServer") == "True"      # only Cancel or success clears it
+        assert menu_visible(c)
+        assert c.alive
+        assert "--connect failed" not in c.logs()            # ReadBoolean got its byte every time
+    finally:
+        c.stop()
+        fake.close()
+
+
 # E2E-25 (pause menu Exit)
 @pytest.mark.e2e
 def test_exit_from_the_pause_menu_disconnects_flushes_the_log_and_releases_the_lock(scratch_runtime):
@@ -151,7 +219,9 @@ def test_exit_from_the_pause_menu_disconnects_flushes_the_log_and_releases_the_l
         # OnExit wrote the buffered lines: the user disconnect (null message) is in the file
         lines = (scratch_runtime / "debug_client.log").read_text(errors="ignore").splitlines()
         assert any(l.endswith("] Disconnected: ") for l in lines[-10:]), lines[-10:]
-        assert re.match(STAMP, lines[-1]), lines[-1]
+        # the last line is a stamped message, or the continuation of a multi-line one (an exception's
+        # "   at ..." trace logged by a network thread as the socket closes); never a torn fragment
+        assert re.match(STAMP, lines[-1]) or lines[-1].startswith(" "), lines[-5:]
     finally:
         p.stop()
         server.stop()

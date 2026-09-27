@@ -35,6 +35,9 @@ def test_startup_reaches_the_main_menu_with_the_fixed_window_and_layout(menu_cli
     assert size == "840x630"                      # CLAUDE.md invariant 8
     assert fixed == "True" and float(step) == 16  # invariant 7
     assert mouse == "True"
+    # window title: the author never sets Window.Title (Vexillum.cs), so the MonoGame SdlGameWindow default
+    # (null) is what the game shows; pinned so a launcher that starts naming the window is a visible change
+    assert c.ev('Sync(() => Game.Window.GetType().Name + "|" + (Game.Window.Title == null ? "<null>" : "[" + Game.Window.Title + "]"))') == "SdlGameWindow|<null>"
 
     # offline identity (SetSteamIdentity): "<random double> <persona name>", so no ErrorDialog was raised
     name = username(c)

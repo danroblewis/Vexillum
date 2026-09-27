@@ -93,7 +93,8 @@ def test_damage_sets_hurt_frame_and_flashes_the_red_border(duo_server, client_a)
                   f'p.Entity.Health -= 20; Server.gameMode.PlayerHealthChanged(p, null); return p.Entity.Health.ToString(); }})')
     hurt = wait_until(lambda: s if (s := entity_state(a))["hurtFrame"] > before["hurtFrame"] else None, 5, interval=0.01,
                       message="packet 110 never set hurtFrame")
-    assert hurt["health"] == before["health"] - 20
+    # Health is a float32 on the wire (packet 110) and a bot may already have chipped it before the test
+    assert hurt["health"] == pytest.approx(before["health"] - 20, abs=0.01)
     assert 0 <= hurt["frame"] - hurt["hurtFrame"] < 20
     # border_red.png is blended over border.png for 20 frames: the border pixel's red channel rises then decays
     peak = base_r
