@@ -519,3 +519,12 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
   (XNA `Vector2.Normalize` of the zero vector). The entity then never moves
   again (`d` is NaN, the position loop never runs) although damage is still
   computed correctly (`ratio` 1, amount 0). Found by `World/ExplosionTests`.
+* `LevelLoader.LoadData` reports a malformed `data.txt` line through
+  `Vexillum.Error`, which calls `game.Exit()` on the static `Vexillum.game`;
+  that is null on the server (and headless), so the per-line `catch` throws
+  a `NullReferenceException` that escapes into the outer `catch`: the loader
+  logs "Error loading level:" with a stack trace and returns null instead of
+  reporting "Parse error on line N" and going on with the next line (the
+  line counter `l` also only advances inside the `try`, so a later report
+  would name the wrong line). Found by the acceptance tests
+  (`Tests/Vexillum.Acceptance/World/LevelLoaderTests.cs`).
