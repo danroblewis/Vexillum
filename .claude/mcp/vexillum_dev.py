@@ -14,8 +14,6 @@ Tools: build, port_audit, invariant_check, preservation_check, runtime_status,
 run_server, run_client, smoke_test, read_log, map_info, extract_map,
 create_map, xnb_info, decompile.
 """
-from __future__ import annotations
-
 import glob
 import io
 import json
