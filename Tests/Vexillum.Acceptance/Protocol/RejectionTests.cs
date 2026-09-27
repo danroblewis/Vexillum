@@ -170,6 +170,12 @@ namespace Vexillum.Acceptance.protocol
         }
 
         // PROTO-09 (Server.IsFull uses '>' : players.Count counts every accepted connection, this one included)
+        //
+        // Server.RunServer enqueues players.Add(new ServerPlayer(...)) on the mutator thread while the
+        // ServerPlayer constructor already starts the reader thread, so a login that is already buffered
+        // can be checked against IsFull before this connection is counted. To make the outcome
+        // deterministic each client waits until Server.players.Count includes its own connection
+        // before sending packet 1 (ScriptedClient connects in its constructor, Login is separate).
         [Fact]
         public void Server_full_rejects_the_extra_login_and_precedes_every_other_check()
         {
@@ -178,35 +184,34 @@ namespace Vexillum.Acceptance.protocol
             using (ScriptedClient a = new ScriptedClient(fx.Server))
             {
                 a.JoinGame(name);
-                Assert.Equal(1, side.PlayerCount());
+                Assert.True(Poll.Until(() => side.PlayerCount() == 1, TimeSpan.FromSeconds(10)), "a not counted");
 
-                // B: with players.Add having run before its login, 2 > 1 and B is refused;
-                // if the login raced ahead of players.Add, B joins (known off-by-one).
-                bool bJoined;
+                // B: once counted, players.Count == 2 > maxplayers 1, so the second human is refused
+                // although only one player is actually playing (the known off-by-one).
                 using (ScriptedClient b = new ScriptedClient(fx.Server))
                 {
+                    Assert.True(Poll.Until(() => side.PlayerCount() == 2, TimeSpan.FromSeconds(10)), "b not counted");
                     b.Login(11UL, Names.Unique("second"));
-                    ServerPacket first = b.WaitFor<ServerPacket>(p => p is ServerIdPacket || p is DisconnectPacket, 10);
-                    bJoined = first is ServerIdPacket;
-                    if (!bJoined)
-                    {
-                        Assert.Equal("This server is full.", ((DisconnectPacket)first).Reason);
-                        Assert.True(b.WaitForClose(TimeSpan.FromSeconds(5)));
-                    }
-                    Assert.True(side.PlayerCount() <= 2);
-
-                    // C is refused in every case, and "full" wins over the banned empty name
-                    using (ScriptedClient c = new ScriptedClient(fx.Server))
-                    {
-                        c.Login(12UL, "");
-                        DisconnectPacket d = c.WaitFor<DisconnectPacket>(null, 10);
-                        Assert.Equal("This server is full.", d.Reason);
-                        Assert.True(c.WaitForClose(TimeSpan.FromSeconds(5)));
-                        Assert.Empty(c.Packets<ServerIdPacket>());
-                    }
-                    Assert.True(side.PlayerCount() <= 2);
+                    DisconnectPacket d = b.WaitFor<DisconnectPacket>(null, 10);
+                    Assert.Equal("This server is full.", d.Reason);
+                    Assert.True(b.WaitForClose(TimeSpan.FromSeconds(5)));
+                    Assert.Empty(b.Packets<ServerIdPacket>());
                 }
                 Assert.NotNull(fx.Server.WaitFor("Disconnecting .*: This server is full.", 5));
+                Assert.True(Poll.Until(() => side.PlayerCount() == 1, TimeSpan.FromSeconds(10)), "b not removed");
+
+                // C: "full" is the first check, so it wins over the banned (and invalid) empty name
+                using (ScriptedClient c = new ScriptedClient(fx.Server))
+                {
+                    Assert.True(Poll.Until(() => side.PlayerCount() == 2, TimeSpan.FromSeconds(10)), "c not counted");
+                    c.Login(12UL, "");
+                    DisconnectPacket d = c.WaitFor<DisconnectPacket>(null, 10);
+                    Assert.Equal("This server is full.", d.Reason);
+                    Assert.True(c.WaitForClose(TimeSpan.FromSeconds(5)));
+                    Assert.Empty(c.Packets<ServerIdPacket>());
+                }
+                Assert.True(Poll.Until(() => side.PlayerCount() == 1, TimeSpan.FromSeconds(10)), "c not removed");
+
                 // A is unaffected
                 a.SendChat("room for one");
                 a.WaitFor<ChatPacket>(p => p.Text.EndsWith("> room for one"), 5);
