@@ -441,3 +441,25 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
 * `HumanoidEntity.Health` setter calls `Level.OnEntityDeath` while `Level`
   can be null during construction (`SetType` sets `Health` before the entity
   is added). Works today because `Health = MaxHealth` is nonzero.
+* `TerrainArray.ToBytes`/`SetBytes` size the bitfield as `(width*height)/8`
+  (integer division) but index it for every pixel: when `width*height` is
+  not a multiple of 8, `ToBytes` throws `IndexOutOfRangeException` if a tail
+  pixel is solid and `SetBytes` always throws. Both shipped maps have sizes
+  divisible by 8, so it never fires today. Found by
+  `Tests/Vexillum.Acceptance/World/TerrainArrayTests`.
+* `Entity.NextID` hands out id 0 once the `short` counter wraps past -2
+  (`CheckIDs` only skips -1 and ids in use), and 0 is the "no entity" value
+  of the terrain outline (`TerrainArray.GetEntity`), so such an entity is
+  invisible to collisions and explosions. Needs ~65k entity allocations per
+  map. Found by `World/EntityOutlineTests`.
+* `Entity.tCorner`/`bCorner` are computed only in the `Size` setter (around
+  the position at that time, i.e. the origin for a fresh humanoid) and never
+  updated by `Position`, so `Entity.TestPoint` and therefore
+  `Level.AddHitscan` test a box around the origin instead of the entity. The
+  server's hitscan is unaffected (it uses `Frame.EntityDef` corners rebuilt
+  every frame). Found by `World/HealthAndHitscanTests`.
+* `Level.DrawCircle` normalises `e.Position - explodeCenter` without a zero
+  check: an explosion centred exactly on an entity gives it a NaN velocity
+  (XNA `Vector2.Normalize` of the zero vector). The entity then never moves
+  again (`d` is NaN, the position loop never runs) although damage is still
+  computed correctly (`ratio` 1, amount 0). Found by `World/ExplosionTests`.
