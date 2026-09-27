@@ -1,14 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Source port of the Nuclex Framework (Support, Input, UserInterface) to
-       MonoGame, minus DirectInput/SlimDX and the test code (docs/PORTING.md
-       step 6). Nuclex is CPL licensed; keep its notice with the sources. -->
+  <!-- Source port of the Nuclex Framework r1404 (Support, Input, UserInterface)
+       to MonoGame, minus DirectInput/SlimDX, window-message input and the
+       test code (docs/PORTING.md step 6). Nuclex is CPL licensed: see
+       LICENSE-CPL.txt; every change to the library is listed in
+       NUCLEX-PORT-NOTES.md. The three original assemblies are merged into one. -->
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <AssemblyName>Vexillum.Shims.Nuclex</AssemblyName>
     <RootNamespace>Nuclex</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The original x86 build defined TRACE;WINDOWS (the XNA "PC" platform
+         switch, not an OS switch); the #if WINDOWS blocks are the desktop code. -->
+    <DefineConstants>$(DefineConstants);TRACE;WINDOWS;NO_DIRECTINPUT</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Skin schema, looked up as GetManifestResourceStream(typeof(GuiManager), "Resources.skin.xsd"). -->
+    <EmbeddedResource Include="UserInterface/Resources/skin.xsd" LogicalName="Nuclex.UserInterface.Resources.skin.xsd" />
+    <!-- Default "Suave" skin (GuiManager.Initialize loads it when no visualizer was assigned),
+         served through Resources/EmbeddedByteResourceManager.cs. -->
+    <EmbeddedResource Include="UserInterface/Resources/Skins/Suave/Suave.skin.xml" LogicalName="Nuclex.UserInterface.Resources.Skins.Suave.SuaveSkin" />
+    <EmbeddedResource Include="UserInterface/Resources/Skins/Suave/SuaveSheet.xnb" LogicalName="Nuclex.UserInterface.Resources.Skins.Suave.SuaveSheet" />
+    <EmbeddedResource Include="UserInterface/Resources/Skins/Suave/DefaultFont.xnb" LogicalName="Nuclex.UserInterface.Resources.Skins.Suave.DefaultFont" />
+    <EmbeddedResource Include="UserInterface/Resources/Skins/Suave/TitleFont.xnb" LogicalName="Nuclex.UserInterface.Resources.Skins.Suave.TitleFont" />
   </ItemGroup>
 </Project>
