@@ -44,7 +44,7 @@ extend it; replace it.
 | 4 | `Shims/System.Drawing` (see CLAUDE.md rule 16) so `Util`, `Level`, `ClientLevel`, `MenuLevel`, `LevelLoader`, `AssetManager`, `TerrainParticle`, `GraphicsHelper`, `TextRenderer`, `ScrollPanel`, `ChatPanel`, `ServerLevel`, `MapCreator` compile unchanged. `Bitmap` over `StbImageSharp` decode; `Save(stream, ImageFormat.Png)` via a minimal PNG encoder (zlib is in the BCL). | todo | Terrain-hash test on the two shipped maps before calling it done. |
 | 5 | `Shims/Steamworks`: complete the `Steamworks` namespace (`CSteamID`, `HAuthTicket`, `AppId_t`, `Callback<T>`, `GameOverlayActivated_t`, `ValidateAuthTicketResponse_t`, `EAuthSessionResponse`, `EBeginAuthSessionResult`, `SteamAPI`, `SteamUser`, `SteamFriends`, `SteamUtils`, `Packsize.Test()`, `DllCheck.Test()`) as an offline implementation. | todo | Keep packet 1 unchanged (ticket may be empty, length 0). A real Steamworks.NET can be dropped in later because the names match. |
 | 6 | `Shims/Nuclex`: source port of Nuclex `Support`, `Input`, `UserInterface` to MonoGame (drop DirectInput/SlimDX, `NMock`, unit tests, `System.Windows.Forms` uses inside Nuclex.Input). `InputManager` reads MonoGame `Keyboard`/`Mouse` state and `Window.TextInput`. All original dialogs, `CustomInputControl(+Renderer)` and the Darkness skin then work unchanged. `Awesomium` files stay commented out as they are. | todo | Vendor the r1404 sources under `Shims/Nuclex/` with the CPL notice. |
-| 7 | `Shims/System.Windows.Forms`: `MessageBox.Show` (logs + stderr), `KeysConverter`, `IMessageFilter`, `Message`, `Application.AddMessageFilter` (no-op). Original `Program.cs` files then compile; the `#if WINDOWS \|\| XBOX` in the client `Program.cs` is satisfied by defining `WINDOWS` in the new csproj (it is the author's constant, not a platform switch). New `--root/--connect` handling goes in a small `Launcher` wrapper project or a `// PORT:` block, owner's choice. | todo | |
+| 7 | `Shims/System.Windows.Forms`: `MessageBox.Show` (logs + stderr), `KeysConverter`, `IMessageFilter`, `Message`, `Application.AddMessageFilter` (no-op). Original `Program.cs` files then compile; the `#if WINDOWS \|\| XBOX` in the client `Program.cs` is satisfied by defining `WINDOWS` in the new csproj (it is the author's constant, not a platform switch). New `--root/--connect` handling goes in a small `Launcher` wrapper project or a `// PORT:` block, owner's choice. | shim done (2026-09-27) | `Shims/WinForms/{MessageBox,Application,KeysConverter,Controls}.cs`. `MessageBox.Show(text[, caption[, buttons]])` writes `[MessageBox] caption: text` to stderr and `Debug`, returns `DialogResult.OK`, never blocks. `Application.AddMessageFilter` keeps the filter in a list that nothing pumps, so `KeyboardMessageFilter.PreFilterMessage` (and its `user32` `TranslateMessage` DllImport) is never invoked; WM_CHAR text input must come from MonoGame `Window.TextInput` (step 6). `Application.Run(Form)` throws `NotSupportedException`. `Controls.cs` stubs `Control`/`ContainerControl`/`Form`/`TextBox`/`Button`/`Label` (over `System.ComponentModel.Component`, so `Dispose(bool)` and `IContainer` come from .NET) for `ServerStart`'s Designer code; `HostServerForm*.cs` and `Program.cs` compile against it except for one `System.Drawing.Icon` cast, which step 4 must provide. Tests: `Tests/Vexillum.Tests/WinFormsShimTests.cs`. `--root/--connect` still open. |
 | 8 | Content: keep `.xnb` fonts/sounds. `Blur.xnb` is XNA DX9 bytecode and cannot load; MonoGame's `mgfxc` needs Wine, which is banned. Reproduce the blur without a shader: `Blur.fx` computes `(tex(uv) + tex(uv + d)) / 2`, so draw the render target twice at half alpha, the second copy offset by `d * targetSize`, with an additive blend, inside the MonoGame `Effect` shim (`Shims/XnaCompat/Effect`) or a `// PORT:` edit in `GameView.LoadShaders`/`DrawStuff`. Content name `Blur` stays. | todo | Pixel-identical for opaque targets, which the level render always is. |
 | 9 | Server on `net9.0`: no graphics device; `Util.IsServer` paths already skip texture loads. `ServerStart` compiles against the WinForms shim but is not shipped; default `settings.txt` creation moves to launcher code. `Heartbeat`/`HttpGet` must time out quietly (`HttpWebRequest` still exists in .NET 9, obsolete but functional; `Timeout = 10000` is already set). | todo | |
 | 10 | Runtime directory: `dotnet run` for client and server must use `Test/` (or a copy) as working directory; document in the run skill. Add `Content/`, `Maps/`, `Server/` copy-to-output or a `--root` argument. | todo | |
@@ -58,9 +58,18 @@ extend it; replace it.
   in the shim assembly coexists with the framework's `Color`, `Rectangle`,
   `PointF` (System.Drawing.Primitives) with no ambiguity; the CS1069
   "forwarded to System.Drawing.Common" errors disappear once the types exist.
-* `ServerStart` is outside `Vexillum.sln` (step 1 notes). Either extend the
-  WinForms shim far enough for its Designer code or move the default
-  `settings.txt` creation into launcher code (step 9) and leave it unbuilt.
+* `ServerStart` is outside `Vexillum.sln` (step 1 notes). The WinForms shim
+  (step 7) now covers everything its Designer code uses except
+  `System.Drawing.Icon`. To add it back to the solution: (a) define `Icon` in
+  `Shims/Drawing` (step 4) and change `Form.Icon` in
+  `Shims/WinForms/Controls.cs` from `object` to `Icon`; (b) add the
+  `System.Configuration.ConfigurationManager` package to
+  `ServerStart.csproj` for `Properties/Settings.Designer.cs`
+  (`ApplicationSettingsBase`); (c) check that `HostServerForm.resx` (embeds
+  a serialized `System.Drawing.Icon`) still passes `GenerateResource`, or
+  exclude the `.resx` files in the csproj. Even then `Application.Run`
+  throws: the form is compiled for preservation, not shipped; the default
+  `settings.txt` creation moves to launcher code (step 9).
 * `Lzma/Compress/LzmaAlone/LzmaAlone.csproj` (legacy, standalone tool) is
   left in place, unbuilt; delete it in step 12 if nobody wants the CLI.
 * `ZombieSurvival/Vexillum.csproj` drops the author's `Win32Resource`
