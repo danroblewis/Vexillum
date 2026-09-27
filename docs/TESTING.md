@@ -26,10 +26,10 @@ results; the skips are the known original bugs listed further down.
 | acceptance | harness self-tests (`Vexillum.Acceptance.*SelfTests`, `KnownServerBugs`) | 14 | 13 | 1 | `--filter "FullyQualifiedName~SelfTests"` |
 | acceptance | protocol (`Vexillum.Acceptance.protocol`, `Protocol/`) | 66 | 63 | 3 | `--filter "FullyQualifiedName~Acceptance.protocol"` |
 | acceptance | server gameplay (`Vexillum.Acceptance.servergameplay`, `Gameplay/`) | 43 | 41 | 2 | `--filter "FullyQualifiedName~servergameplay"` |
-| acceptance | physics and terrain (`Vexillum.Acceptance.physicsterrain`, `World/`) | 72 | 67 | 5 | `--filter "FullyQualifiedName~physicsterrain"` |
+| acceptance | physics and terrain (`Vexillum.Acceptance.physicsterrain`, `World/`) | 81 | 75 | 6 | `--filter "FullyQualifiedName~physicsterrain"` |
 | acceptance | tools and config (`Vexillum.Acceptance.toolsconfig`, `Tools/`) | 82 | 80 | 2 | `--filter "FullyQualifiedName~toolsconfig"` |
-| **acceptance** | **all** (`make acceptance`, about 3 minutes) | **277** | **264** | **13** | |
-| e2e | `Tests/e2e/test_*.py` (launcher, main menu, movement, weapons, chat/HUD, session, spectator, harness smoke) | 39 | 39 | 0 xfail | `make e2e` (about 4 minutes, opens windows) |
+| **acceptance** | **all** (`make acceptance`, about 3 minutes) | **286** | **272** | **14** | |
+| e2e | `Tests/e2e/test_*.py` (launcher, main menu, movement, weapons, chat/HUD, session, spectator, terrain rendering, harness smoke) | 41 | 41 | 0 xfail | `make e2e` (about 4 minutes, opens windows) |
 
 (`dotnet test` counts theory cases: the 73 `[Fact]`/`[Theory]` methods of
 `Tools/` expand to 82 cases.) The filters are `dotnet test
@@ -109,6 +109,7 @@ Namespace `Vexillum.Acceptance`. One class per helper, each with XML docs:
 | `ScriptedClient` | the client side of `docs/PROTOCOL.md` over a raw `TcpClient`: `Login`, `Status`, `Probe` (byte 255), `SendPosition*`, `SendWeaponActivate/Action/Select`, `SendHitscan`, `SendChat`, `SendRaw`; every server packet decoded into a `ServerPacket` record (`Packets.cs`); `WaitFor<T>`, `WaitForNext<T>`, `NoneWithin<T>`, `WaitUntil`, `Packets<T>()`; `JoinGame(name)` runs the whole handshake; `MyEntityId`, `Me`, `MyEntity`, `Players`, `Entities` (positions from 30/31/32), `Terrain` (packet 3 as a `TerrainSnapshot`), `ReceivedMapBytes` (220-222), `Frame`, `Disconnect` |
 | `Protocol` | packet ids, entity-type table, angle/movement encoders (a copy checked against `StreamHelper`) |
 | `MapFile` | parses a `.map` without decoding images; `Md5(path)` as the client sends it; `Width`/`Height` |
+| `MapWriter` | writes a `.map` (magic + LZMA records) from entries, `MinimalEntries(w, h, collisionArgb, dataTxt)` for a synthetic map with its own `data.txt`, `Png`/`FilledPng` through the Drawing shim |
 | `TerrainSnapshot` | the `ToBytes()` bitfield: `IsSolid(x, y)`, `SolidCount`, `Sha256Hex`, `CountDifferences` |
 | `HeadlessLevel` | a concrete `Level` from a shipped map with `Util.IsServer = true`: `AddHumanoid`, `AddHumanoidAtSpawn`, `Add`, `StepFrames(n)`, `IsSolid`, `CollisionNibble`, `IsLadder`, `EntityAt`, `Snapshot`, `Spawns`, `Flags`, `GroundBelow` |
 | `SyntheticLevel` | a concrete `Level` over hand-made collision bitmaps described in world coordinates (`Build(w, h, (x, y) => colour)`, `Uniform`, colour constants `Empty`/`Solid`/`Ladder`/`Clear`/`Destructible(nibble)`) or a shipped map without regions (`FromShippedMap`); records `Collisions`, `HitscanHits`, `Deaths`, owns the `TaskQueue` (`Tasks`, processed after each `StepFrames` frame), `UseServerCollision()` calls `OnCollide` like ServerLevel, `CreateEntity<T>(fullName)` builds internal entity types (Rocket, ClusterBomb) |
@@ -265,6 +266,7 @@ deliberate, named commit (invariant 11). Un-skip the test in that commit.
 | `World/HealthAndHitscanTests.Setting_health_to_zero_before_the_entity_is_added_does_not_throw` | `HumanoidEntity.Health` setter calls `Level.OnEntityDeath` while `Level` is null |
 | `World/HealthAndHitscanTests.Hitscan_stops_at_an_entity_box_and_skips_the_ignored_entity` | `Entity.tCorner`/`bCorner` are only computed in the `Size` setter, so `Entity.TestPoint` tests a box around the origin |
 | `World/ExplosionTests.Explosion_at_the_entity_centre_gives_a_finite_velocity` | `Level.DrawCircle` normalises the zero vector: an explosion centred on an entity leaves its velocity NaN |
+| `World/LevelLoaderTests.Malformed_data_line_is_reported_with_its_line_number_and_the_other_regions_still_load` | `LevelLoader.LoadData` reports a malformed `data.txt` line through `Vexillum.Error`, which dereferences the null `Vexillum.game` on the server, so the load aborts with a `NullReferenceException` instead of naming the line and continuing |
 | `Tools/ServerConfigTests.Parse_error_reports_the_one_based_line_number` | `ParseServerConfig` reports `"line " + l+1` (string concatenation) |
 | `Tools/MasterServerTests.EscapeUriString_escapes_reserved_characters` | `Util.EscapeUriString` returns the unescaped input |
 
