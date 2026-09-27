@@ -431,6 +431,17 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
   joins while the single bot is on the other team. Found by the acceptance
   harness (Tests/Vexillum.Acceptance, `KnownServerBugs`); tests keep
   `maxbots` at the default 6 or use `maxbots 1` for single-client runs.
+* MiscUtil's `EndianBinaryWriter.Write7BitEncodedInt` (the vendored 2013
+  copy and the `JTForks.MiscUtil` package alike) advances its buffer index
+  twice per continuation byte, so every string of 128 or more UTF-8 bytes
+  is written with a stray `0x00` after the first length byte while the
+  reader decodes lengths correctly. Both directions desynchronise on such
+  a string: a 128-character name is read as an empty name followed by a
+  garbage ticket length, and a chat line whose coloured display name plus
+  text reaches 128 bytes breaks the client's stream. In practice the name
+  limit the wire enforces is 127, not the 128 `ServerPlayer` checks. Found
+  by the protocol acceptance tests (`Protocol/EncodingTests`,
+  `Protocol/RejectionTests`).
 * `Vexillum.BeginSpriteBatch(Effect)` ignores the effect parameter (see
   ARCHITECTURE.md rendering notes). Behaviour depends on Immediate mode.
 * `Level.Explode(int,int,int,Player,Weapon)` seeds `Random` with
