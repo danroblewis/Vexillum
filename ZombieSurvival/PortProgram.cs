@@ -156,7 +156,7 @@ namespace Vexillum
                     Thread.Sleep(pollMs);
                     waited += pollMs;
                     Vexillum game = Vexillum.game;
-                    if (game == null)
+                    if (game == null || !IsInitialized(game))
                         continue;
                     AbstractView view = game.View;
                     if (view is MainMenuView && view.Menu != null && view.Menu.visible)
@@ -180,6 +180,35 @@ namespace Vexillum
             t.Name = "PortConnect";
             t.IsBackground = true;
             t.Start();
+        }
+
+        /// <summary>
+        /// True once MonoGame has finished Initialize()/LoadContent() and the
+        /// update loop owns the GUI. Before that, LoadContent is still building
+        /// the menu (it shows, hides and re-shows it), and touching the Nuclex
+        /// control tree from another thread corrupts it ("Control already is
+        /// the child of another control"). Reads Game's private _initialized
+        /// flag; if a future MonoGame renames it, falls back to a delay after
+        /// the menu first appears.
+        /// </summary>
+        private static FieldInfo initializedField;
+        private static bool initializedFieldLookedUp;
+        private static int menuSeenMs;
+
+        private static bool IsInitialized(Microsoft.Xna.Framework.Game game)
+        {
+            if (!initializedFieldLookedUp)
+            {
+                initializedFieldLookedUp = true;
+                initializedField = typeof(Microsoft.Xna.Framework.Game).GetField("_initialized", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+            if (initializedField != null)
+            {
+                object v = initializedField.GetValue(game);
+                return v is bool && (bool)v;
+            }
+            menuSeenMs += 250;
+            return menuSeenMs >= 2000;
         }
 
         private static void PrintHelp()

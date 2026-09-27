@@ -556,6 +556,7 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
     if not scmd or not ccmd:
         return f"SMOKE: missing binaries server={bool(scmd)} client={bool(ccmd)}"
     rt = ROOT / runtime_dir
+    started_at = time.time() - 1
     slog = SCRATCH / "smoke-server.log"
     sp = _launch(scmd + ["--port", str(port)], rt, slog, {})
     if not _wait_for(slog, "Ready for connections", min(20, seconds), sp):
@@ -587,7 +588,10 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
     ctexts = [c.read_text(errors="ignore") for c in clogs]
     dbg = rt / "debug_client.log"
     if dbg.exists():
-        ctexts[0] += "\n--- debug_client.log ---\n" + dbg.read_text(errors="ignore")
+        # The game appends to this file across runs; keep only lines stamped after this test began.
+        stamp = time.strftime("[%Y-%m-%d %H:%M:%S]", time.localtime(started_at))
+        fresh = [l for l in dbg.read_text(errors="ignore").splitlines() if l[:21] >= stamp or not l.startswith("[")]
+        ctexts[0] += "\n--- debug_client.log (this run) ---\n" + "\n".join(fresh)
     logins = remote_logins(stext)
     terrain = sum("Set terrain state" in t for t in ctexts)
     disconnected = [i for i, t in enumerate(ctexts) if "Disconnected" in t or "Invalid command" in t]
