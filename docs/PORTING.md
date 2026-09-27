@@ -476,6 +476,17 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
   `WriteData`, so 110/120/121/122/98/22 only leave with the next flushed
   packet (a capture arrives as 40, then 121 and 120 with the 131; a hitscan's
   110 waits for the next 30/31 broadcast).
+* MiscUtil's `EndianBinaryWriter.Write7BitEncodedInt` (the vendored 2013
+  copy and the `JTForks.MiscUtil` package alike) advances its buffer index
+  twice per continuation byte, so every string of 128 or more UTF-8 bytes
+  is written with a stray `0x00` after the first length byte while the
+  reader decodes lengths correctly. Both directions desynchronise on such
+  a string: a 128-character name is read as an empty name followed by a
+  garbage ticket length, and a chat line whose coloured display name plus
+  text reaches 128 bytes breaks the client's stream. In practice the name
+  limit the wire enforces is 127, not the 128 `ServerPlayer` checks. Found
+  by the protocol acceptance tests (`Protocol/EncodingTests`,
+  `Protocol/RejectionTests`).
 * `Vexillum.BeginSpriteBatch(Effect)` ignores the effect parameter (see
   ARCHITECTURE.md rendering notes). Behaviour depends on Immediate mode.
 * `Level.Explode(int,int,int,Player,Weapon)` seeds `Random` with
