@@ -1,0 +1,28 @@
+{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": [
+      "mcp__vexillum-dev",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(python3 .claude/mcp/vexillum_dev.py:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git status:*)"
+    ],
+    "deny": [
+      "Bash(wine:*)",
+      "Bash(wine64:*)",
+      "Bash(mgfxc:*)",
+      "Bash(xbuild:*)",
+      "Bash(msbuild:*)",
+      "Bash(./build.sh:*)"
+    ]
+  }
+}

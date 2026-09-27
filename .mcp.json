@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vexillum-dev": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--with", "mcp<2", "python", ".claude/mcp/vexillum_dev.py", "serve"]
+    }
+  }
+}

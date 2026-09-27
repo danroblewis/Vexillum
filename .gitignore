@@ -433,3 +433,10 @@ FodyWeavers.xsd
 *.dll
 /ExtractMap/obj
 /CreateMap.cs/obj
+
+# Vexillum port
+.claude/settings.local.json
+debug_client.log
+debug_server.log
+Test/lock
+.DS_Store

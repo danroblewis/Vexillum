@@ -1,0 +1,110 @@
+# Porting plan and status
+
+Living document. Update the status column when a step lands. Every step must
+leave `dotnet build Vexillum.sln` green (once the new solution exists) and
+must not violate an invariant in `CLAUDE.md`.
+
+## Target
+
+* .NET 8 or later SDK-style projects (`net9.0` on this machine because the
+  9.0.305 SDK is the only one installed). One new solution file.
+* MonoGame 3.8.4 `DesktopGL` from NuGet (already in the local NuGet cache at
+  `~/.nuget/packages/monogame.framework.desktopgl/3.8.4`). Same binaries run
+  on macOS, Windows and Linux.
+* Native on Apple Silicon, Linux and Windows. No Wine, Proton or Rosetta
+  anywhere in the build or at runtime (CLAUDE.md "Platform policy").
+* Original source files preserved; missing libraries supplied by a `Shims/`
+  project and a source port of Nuclex (CLAUDE.md "Preservation comes first").
+* No Windows-only assemblies referenced anywhere; the shims carry the same
+  namespace names but are cross-platform managed code.
+* Prebuilt `.xnb` sounds and fonts from `Test/Content` keep being used until a
+  content pipeline is set up; `Blur.xnb` cannot be rebuilt without Wine, so
+  the blur is reproduced without a shader (step 8).
+
+## Why the 2025 Mono attempt (`BUILD_NOTES.md`, `build.sh`) cannot work
+
+It swapped the XNA references for `lib/MonoGame/MonoGame.Framework.dll` 3.7.1
+but kept `dlls/Nuclex.*.dll`, `dlls/Platform.dll` and `dlls/SlimDX.DirectInput.dll`.
+Those assemblies are compiled against the strong-named
+`Microsoft.Xna.Framework, PublicKeyToken=842cf8be1de50553`; the binding
+redirect in `Game/Game/app.config` cannot map them to an assembly with a
+different name and key. Nuclex.Input also needs SlimDX (native DirectInput).
+The approach is dead on arrival, and `xbuild` is itself deprecated. Do not
+extend it; replace it.
+
+## Steps
+
+| # | Step | Status | Notes |
+|---|---|---|---|
+| 0 | Claude environment: `CLAUDE.md`, docs, skills, agents, MCP server | done (2026-09-27) | This commit. |
+| 1 | New SDK-style solution `Vexillum.sln` replacing the 2010 one; projects `Lzma`, `Game`, `Server`, `Client` (from `ZombieSurvival/`), `MapTools`, `CreateMap`, `ExtractMap`. Delete `PlatformLinux`, fold `Platform/Vec2.cs` into `Game/util`. Keep old files until the new build is green, then remove. | todo | Use `Directory.Build.props` for shared settings. `AllowUnsafeBlocks` not needed once Awesomium files go. |
+| 2 | Compile `Lzma` and `MapTools` on `net9.0`. Remove the unused `GetJpgEncoder` (only `System.Drawing` use in MapTools). | todo | Should be trivial; this proves the toolchain. |
+| 2b | Revert the 2025 source edits from commit `c948e3c` (`git checkout 370aa81 -- <file>` for the seven `.cs` files it touched, except keep `SteamworksStub.cs` content as the seed of the Steamworks shim) so the historical files are byte-identical to the author's. | todo | Do this before step 3 so all later diffs are against the original. |
+| 3 | `Shims/XnaCompat`: empty namespaces `Microsoft.Xna.Framework.GamerServices`, `.Storage`, `.Net` so the original `using`s compile; `Game` compiles against MonoGame with the UI, Steam and Drawing files still failing. | todo | Zero edits to historical files in this step. |
+| 4 | `Shims/System.Drawing` (see CLAUDE.md rule 16) so `Util`, `Level`, `ClientLevel`, `MenuLevel`, `LevelLoader`, `AssetManager`, `TerrainParticle`, `GraphicsHelper`, `TextRenderer`, `ScrollPanel`, `ChatPanel`, `ServerLevel`, `MapCreator` compile unchanged. `Bitmap` over `StbImageSharp` decode; `Save(stream, ImageFormat.Png)` via a minimal PNG encoder (zlib is in the BCL). | todo | Terrain-hash test on the two shipped maps before calling it done. |
+| 5 | `Shims/Steamworks`: complete the `Steamworks` namespace (`CSteamID`, `HAuthTicket`, `AppId_t`, `Callback<T>`, `GameOverlayActivated_t`, `ValidateAuthTicketResponse_t`, `EAuthSessionResponse`, `EBeginAuthSessionResult`, `SteamAPI`, `SteamUser`, `SteamFriends`, `SteamUtils`, `Packsize.Test()`, `DllCheck.Test()`) as an offline implementation. | todo | Keep packet 1 unchanged (ticket may be empty, length 0). A real Steamworks.NET can be dropped in later because the names match. |
+| 6 | `Shims/Nuclex`: source port of Nuclex `Support`, `Input`, `UserInterface` to MonoGame (drop DirectInput/SlimDX, `NMock`, unit tests, `System.Windows.Forms` uses inside Nuclex.Input). `InputManager` reads MonoGame `Keyboard`/`Mouse` state and `Window.TextInput`. All original dialogs, `CustomInputControl(+Renderer)` and the Darkness skin then work unchanged. `Awesomium` files stay commented out as they are. | todo | Vendor the r1404 sources under `Shims/Nuclex/` with the CPL notice. |
+| 7 | `Shims/System.Windows.Forms`: `MessageBox.Show` (logs + stderr), `KeysConverter`, `IMessageFilter`, `Message`, `Application.AddMessageFilter` (no-op). Original `Program.cs` files then compile; the `#if WINDOWS \|\| XBOX` in the client `Program.cs` is satisfied by defining `WINDOWS` in the new csproj (it is the author's constant, not a platform switch). New `--root/--connect` handling goes in a small `Launcher` wrapper project or a `// PORT:` block, owner's choice. | todo | |
+| 8 | Content: keep `.xnb` fonts/sounds. `Blur.xnb` is XNA DX9 bytecode and cannot load; MonoGame's `mgfxc` needs Wine, which is banned. Reproduce the blur without a shader: `Blur.fx` computes `(tex(uv) + tex(uv + d)) / 2`, so draw the render target twice at half alpha, the second copy offset by `d * targetSize`, with an additive blend, inside the MonoGame `Effect` shim (`Shims/XnaCompat/Effect`) or a `// PORT:` edit in `GameView.LoadShaders`/`DrawStuff`. Content name `Blur` stays. | todo | Pixel-identical for opaque targets, which the level render always is. |
+| 9 | Server on `net9.0`: no graphics device; `Util.IsServer` paths already skip texture loads. `ServerStart` compiles against the WinForms shim but is not shipped; default `settings.txt` creation moves to launcher code. `Heartbeat`/`HttpGet` must time out quietly (`HttpWebRequest` still exists in .NET 9, obsolete but functional; `Timeout = 10000` is already set). | todo | |
+| 10 | Runtime directory: `dotnet run` for client and server must use `Test/` (or a copy) as working directory; document in the run skill. Add `Content/`, `Maps/`, `Server/` copy-to-output or a `--root` argument. | todo | |
+| 11 | Smoke test on loopback: server up, client connects with the random identity, reaches packet 9, moves, fires, terrain deforms, disconnect clean. Automate through the MCP `smoke_test` tool. | todo | |
+| 12 | Cleanup: remove `lib/MonoGame`, `dlls/`, `BUILD_NOTES.md`, `build.sh`, `Icons.res` references, `.DS_Store` files; update `README.md` build section. | todo | Keep `Test/*.exe` as the reference build. |
+
+## Decisions (settled 2026-09-27 by the preservation rule)
+
+* **UI:** port Nuclex from source (option 1). Myra or hand-rolled dialogs
+  would mean rewriting the author's UI files, which preservation forbids.
+* **Images:** `StbImageSharp` (public domain, decode only) inside the
+  `System.Drawing` shim; PNG encode for `Bitmap.Save` via a minimal
+  encoder over `System.IO.Compression.ZLibStream`. ImageSharp is not needed.
+* **Shader:** no shader compiler at all; the blur is reproduced with two
+  sprite draws (step 8). If MonoGame ever ships a Wine-free effect compiler,
+  the original `Blur.fx` can be compiled again and the workaround removed.
+* **Steam:** the `Steamworks` namespace is shimmed offline; the names match
+  Steamworks.NET so a real integration can return later without edits.
+
+## Hazard inventory (2026-09-27)
+
+Run the `port_audit` MCP tool for the live list. Snapshot of files by hazard:
+
+* `System.Drawing`: Util, GraphicsHelper, Level, LevelLoader, ClientLevel,
+  MenuLevel, ScrollPanel, ChatPanel, net/Client (one `Color.Red`),
+  TextRenderer, view/AssetManager, view/TerrainParticle, Server/ServerLevel,
+  MapTool/MapCreator, ServerStart/*.
+* `System.Windows.Forms`: Vexillum (MessageBox, message filter), util/KeyboardMessageFilter,
+  ui/KeySelectorControl (`KeysConverter`), ZombieSurvival/Program, ServerStart/*.
+* `Nuclex`: Vexillum, Util, LocalPlayer, all `ui/*Dialog`, ui/Menu,
+  ui/CustomInputControl(+Renderer), ui/KeySelectorControl, ui/WebControl(+Renderer),
+  view/AbstractView, view/GameView, view/MenuView, view/MultiplayerView,
+  Entities/Weapons/{Weapon,SMG,RocketLauncher,ClusterBombLauncher} (`MouseButtons` only).
+* `Steamworks`: SteamworksStub, Vexillum, steam/*, net/Client, ui/MainMenu,
+  game/Identity, Server/ServerSteamAPI, Server/ServerPlayer.
+* `Awesomium` + `unsafe`: ui/XNASurface, ui/WebControl, ui/WebControlRenderer
+  (all fully commented out already).
+* XNA namespaces gone in MonoGame: `GamerServices` (Vexillum, three weapons,
+  ZombieSurvival), `Storage` (ControlSystem), `Media` (harmless, exists in MonoGame).
+* `DllImport`: util/KeyboardMessageFilter.
+* Hard-coded paths: `ZombieSurvival/Vexillum.csproj` `Win32Resource` points at
+  `C:\Users\Jacob\...`; content project references `..\..\ExEnFontShim` and a
+  Nuclex binaries folder outside the repo.
+
+## Known original bugs (do not fix silently; log here and fix deliberately)
+
+* `Util.EscapeUriString` builds `sb` then returns the unescaped `value`.
+* `ServerPlayer.SetMovement` compares `movement[2]` against `direction` and
+  `movement[3]` against `jumping` (indices shifted by one) before assigning
+  correctly; the net effect is that `movementChanged` fires too often.
+* `Server.Chat` `/kick` and `/ban` compare `p.name` (the issuer) instead of
+  `other.name`, so they only ever hit the issuer.
+* `Server.IsFull` uses `>` so `maxPlayers + 1` players can join.
+* `Vexillum.BeginSpriteBatch(Effect)` ignores the effect parameter (see
+  ARCHITECTURE.md rendering notes). Behaviour depends on Immediate mode.
+* `Level.Explode(int,int,int,Player,Weapon)` seeds `Random` with
+  `DateTime.Now.Millisecond`, so client-initiated explosions are not
+  deterministic across peers (server-initiated ones send the seed).
+* `TextRenderer.DrawFormattedString` draws one `DrawString` per character.
+  Slow but it defines the exact kerning the UI was laid out for.
+* `HumanoidEntity.Health` setter calls `Level.OnEntityDeath` while `Level`
+  can be null during construction (`SetType` sets `Health` before the entity
+  is added). Works today because `Health = MaxHealth` is nonzero.
