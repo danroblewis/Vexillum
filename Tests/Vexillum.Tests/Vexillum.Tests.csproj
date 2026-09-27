@@ -15,7 +15,10 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../Game/Game/Game.csproj" />
+    <!-- Pass -p:VexillumTestsNoGame=true to run the shim-only tests while
+         the Game project is still red (it drags in every shim). -->
+    <ProjectReference Include="../../Game/Game/Game.csproj" Condition="'$(VexillumTestsNoGame)' != 'true'" />
     <ProjectReference Include="../../Shims/Drawing/Drawing.csproj" />
+    <ProjectReference Include="../../Shims/Steamworks/Steamworks.csproj" />
   </ItemGroup>
 </Project>
