@@ -421,6 +421,16 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
 * `Server.Chat` `/kick` and `/ban` compare `p.name` (the issuer) instead of
   `other.name`, so they only ever hit the issuer.
 * `Server.IsFull` uses `>` so `maxPlayers + 1` players can join.
+* `Server.UpdateBots` loops forever on the `Server Main` thread when
+  `RemoveBot` has to remove a bot but finds none of the class it picks
+  (`numBlue > numGreen ? Blue : Green`, computed from counts that still
+  include the joining/leaving human): every `AddTask` then stalls and the
+  server stops answering, although the acceptor thread keeps accepting.
+  Reproduced by `maxbots 0` with one human joining (`maxAllowedBots` = -1
+  and there is no bot to remove) and by `maxbots 2` when a second human
+  joins while the single bot is on the other team. Found by the acceptance
+  harness (Tests/Vexillum.Acceptance, `KnownServerBugs`); tests keep
+  `maxbots` at the default 6 or use `maxbots 1` for single-client runs.
 * `Vexillum.BeginSpriteBatch(Effect)` ignores the effect parameter (see
   ARCHITECTURE.md rendering notes). Behaviour depends on Immediate mode.
 * `Level.Explode(int,int,int,Player,Weapon)` seeds `Random` with

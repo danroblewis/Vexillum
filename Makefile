@@ -2,7 +2,10 @@
 # which is the compiler, dependency manager (NuGet) and test runner in one.
 #
 #   make            compile everything (Debug)
-#   make test       run the test suite
+#   make test       run the unit tests (Tests/Vexillum.Tests: shims, terrain oracle)
+#   make acceptance run the acceptance tests (real server + scripted protocol clients)
+#   make e2e        run the end-to-end tests (real game windows; needs a display)
+#   make test-all   unit + acceptance
 #   make server     compile, then run the dedicated server from Test/
 #   make client     compile, then run the game from Test/ (main menu)
 #   make play       compile, then run the game and join the server at CONNECT
@@ -23,7 +26,7 @@ SERVER_EXE := Server/bin/$(CONFIG)/$(TFM)/VexillumServer
 CLIENT_EXE := ZombieSurvival/bin/$(CONFIG)/$(TFM)/VexillumGame
 ABS        := $(CURDIR)
 
-.PHONY: all build restore test clean server client play smoke dist release check help
+.PHONY: all build restore test acceptance e2e test-all clean server client play smoke dist release check help
 
 all: build
 
@@ -35,9 +38,20 @@ build:
 restore:
 	dotnet restore $(SLN)
 
-## Run the xunit test suite (shims, terrain fidelity oracle, Nuclex port).
+## Run the unit tests (shims, terrain fidelity oracle, Nuclex port). Fast, no processes started.
 test: build
-	dotnet test $(SLN) -c $(CONFIG) -nologo --no-build
+	dotnet test Tests/Vexillum.Tests -c $(CONFIG) -nologo --no-build
+
+## Run the acceptance tests: the real server in scratch copies of Test/ driven by scripted protocol clients (docs/TESTING.md).
+acceptance: build
+	dotnet test Tests/Vexillum.Acceptance -c $(CONFIG) -nologo --no-build
+
+## Run the end-to-end tests: real server + real game windows through the debug console (needs a display; opens windows).
+e2e: build
+	python3 -m pytest Tests/e2e -m e2e -x -q
+
+## Unit tests followed by the acceptance tests.
+test-all: test acceptance
 
 ## Compile in Release configuration.
 release:
@@ -81,4 +95,4 @@ dist:
 	@echo "dist/$(RID): run ./VexillumServer and ./VexillumGame from inside that folder"
 
 help:
-	@awk '/^## /{c=c (c?" ":"") substr($$0,4); next} /^[a-z][a-z-]*:/{if(c){printf "  %-9s %s\n", substr($$1,1,length($$1)-1), c}; c=""} {if($$0 !~ /^## /) c=(c && $$0 ~ /^[a-z]/) ? c : c}' $(MAKEFILE_LIST)
+	@awk '/^## /{c=c (c?" ":"") substr($$0,4); next} /^[a-z][a-z0-9-]*:/{if(c){printf "  %-11s %s\n", substr($$1,1,length($$1)-1), c}; c=""} {if($$0 !~ /^## /) c=(c && $$0 ~ /^[a-z]/) ? c : c}' $(MAKEFILE_LIST)

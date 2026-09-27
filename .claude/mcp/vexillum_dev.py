@@ -866,12 +866,27 @@ def _proc_meta(name: str) -> dict | None:
         m = json.loads(f.read_text())
     except Exception:
         return None
-    try:
-        os.kill(m["pid"], 0)
-        m["alive"] = True
-    except OSError:
-        m["alive"] = False
+    m["alive"] = _alive(m["pid"])
     return m
+
+
+def _alive(pid: int) -> bool:
+    """True when pid is running. When the process is a child of this Python process
+    (proc_start called in-process, e.g. from pytest) it is reaped here so a zombie
+    does not count as alive (os.kill(pid, 0) succeeds on zombies)."""
+    try:
+        reaped, _ = os.waitpid(pid, os.WNOHANG)
+        if reaped == pid:
+            return False
+    except ChildProcessError:
+        pass
+    except OSError:
+        pass
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
 
 
 def _proc_names() -> list[str]:
@@ -944,13 +959,16 @@ def proc_stop(target: str = "all") -> str:
             except ProcessLookupError:
                 pass
             for _ in range(40):
-                try:
-                    os.kill(m["pid"], 0); time.sleep(0.1)
-                except OSError:
+                if not _alive(m["pid"]):
                     break
+                time.sleep(0.1)
             else:
                 try: os.killpg(m["pid"], signal.SIGKILL)
-                except ProcessLookupError: pass
+                except OSError: pass
+                for _ in range(20):
+                    if not _alive(m["pid"]):
+                        break
+                    time.sleep(0.1)
             out.append(f"{name}: stopped (pid {m['pid']})")
         else:
             out.append(f"{name}: was not running")
@@ -1065,8 +1083,8 @@ PROBES = {
     },
     "server": {
         "players": "Sync(() => ((System.Collections.IEnumerable)Server.players).Cast<Player>().Select(p => p.name + \" class=\" + p.CurrentClass + \" score=\" + p.Score + \" ping=\" + p.pingString + \" bot=\" + p.isBot + \" hp=\" + (p.Entity != null ? p.Entity.Health.ToString() : \"-\") + \" pos=\" + (p.Entity != null ? p.Entity.Position.ToString() : \"-\")).ToList())",
-        "frame": "Sync(() => \"frame=\" + Server.level.frame + \" time=\" + Server.level.GetTime() + \" map=\" + Server.level.ShortName + \" entities=\" + Server.level.getEntities().Count + \" ready=\" + Server.ready)",
-        "entities": "Sync(() => Server.level.getEntities().Select(e => e.GetType().Name + \" #\" + e.ID + \" pos=\" + e.Position + \" vel=\" + e.Velocity + (e.player != null ? \" player=\" + e.player.name : \"\")).ToList())",
+        "frame": "Sync(() => { var s = (global::Server.Server)Server; return \"frame=\" + s.level.frame + \" time=\" + s.level.GetTime() + \" map=\" + s.level.ShortName + \" entities=\" + s.level.getEntities().Count + \" ready=\" + s.ready; })",
+        "entities": "Sync(() => ((global::Server.Server)Server).level.getEntities().Select(e => e.GetType().Name + \" #\" + e.ID + \" pos=\" + e.Position + \" vel=\" + e.Velocity + (e.player != null ? \" player=\" + e.player.name : \"\")).ToList())",
         "gamemode": "Sync(() => Dump(Server.gameMode))",
         "level": "Sync(() => Dump(Server.level))",
         "threads": "System.Diagnostics.Process.GetCurrentProcess().Threads.Count + \" threads; GC=\" + (GC.GetTotalMemory(false) / 1048576) + \" MB\"",
