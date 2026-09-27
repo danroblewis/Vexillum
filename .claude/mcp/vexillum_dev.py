@@ -569,9 +569,15 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
         time.sleep(1.5)
     deadline = time.time() + seconds
     def count(marker, text): return text.count(marker)
+    def remote_logins(text): return len(re.findall(r"\d+\.\d+\.\d+\.\d+:\d+ logged in as", text))
+    def shared_creates(texts):
+        sets = [set(re.findall(r"Create:\d+@\d+", t)) for t in texts]
+        return set.intersection(*sets) if sets else set()
     while time.time() < deadline:
         stext = slog.read_text(errors="ignore")
-        if count("logged in as", stext) >= len(cps) and all("Set terrain state" in c.read_text(errors="ignore") for c in clogs):
+        texts = [c.read_text(errors="ignore") for c in clogs]
+        if remote_logins(stext) >= len(cps) and all("Set terrain state" in t for t in texts) \
+                and (len(cps) < 2 or shared_creates(texts)):
             break
         time.sleep(0.5)
     time.sleep(min(6, seconds // 4))
@@ -582,18 +588,21 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
     dbg = rt / "debug_client.log"
     if dbg.exists():
         ctexts[0] += "\n--- debug_client.log ---\n" + dbg.read_text(errors="ignore")
-    logins = count("logged in as", stext)
-    joined = count("joined the game", stext)
+    logins = remote_logins(stext)
     terrain = sum("Set terrain state" in t for t in ctexts)
     disconnected = [i for i, t in enumerate(ctexts) if "Disconnected" in t or "Invalid command" in t]
+    # Cross-client broadcast evidence: every client logs server entity creates as "Create:<id>@<frame>"
+    # (Client.cs packet 42); the same line in every client log proves the server broadcast reached all of them.
+    shared = shared_creates(ctexts)
     reasons = []
     if logins < len(cps): reasons.append(f"server logged {logins}/{len(cps)} logins")
     if terrain < len(cps): reasons.append(f"{terrain}/{len(cps)} clients received terrain (packet 3)")
     if disconnected: reasons.append(f"clients {disconnected} logged a disconnect")
-    if len(cps) >= 2 and joined < len(cps): reasons.append(f"server broadcast {joined}/{len(cps)} 'joined the game' chats")
+    if len(cps) >= 2 and not shared: reasons.append("no entity-create broadcast seen by all clients (need one identical 'Create:id@frame' line in every client log; the server does not log outgoing chat)")
     verdict = "PASS" if not reasons else "FAIL"
     out = [f"SMOKE: {verdict} {'(' + '; '.join(reasons) + ')' if reasons else ''}",
            f"clients={len(cps)} {chows}; server {show}; screenshot: {shot or 'none'}",
+           f"logins={logins} terrain={terrain}/{len(cps)} shared entity creates across clients={len(shared)}",
            f"--- server (tail) ---\n{tail(stext, lines)}"]
     for i, t in enumerate(ctexts):
         out.append(f"--- client {i} (tail) ---\n{tail(t, lines)}")
@@ -601,12 +610,12 @@ def smoke_test(seconds: int = 25, runtime_dir: str = "Test", port: int = 24224, 
 
 
 def read_log(which: str = "client", lines: int = 80, runtime_dir: str = "Test") -> str:
-    """Tail a log: which = client | server | client-stdout | server-stdout | smoke-client | smoke-server."""
+    """Tail a log: which = client | server | client-stdout | server-stdout | smoke-server | smoke-client | smoke-client<N>."""
     rt = ROOT / runtime_dir
     paths = {"client": rt / "debug_client.log", "server": rt / "Server/debug_server.log",
              "client-stdout": SCRATCH / "client-stdout.log", "server-stdout": SCRATCH / "server-stdout.log",
-             "smoke-client": SCRATCH / "smoke-client.log", "smoke-server": SCRATCH / "smoke-server.log"}
-    p = paths.get(which)
+             "smoke-client": SCRATCH / "smoke-client0.log", "smoke-server": SCRATCH / "smoke-server.log"}
+    p = paths.get(which) or (SCRATCH / f"{which}.log" if re.fullmatch(r"smoke-client\d+", which) else None)
     if not p or not p.exists():
         return f"no log: {which} ({p})"
     return tail(p.read_text(errors="ignore"), lines)
