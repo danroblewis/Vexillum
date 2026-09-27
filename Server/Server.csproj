@@ -3,6 +3,9 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>VexillumServer</AssemblyName>
     <RootNamespace>Server</RootNamespace>
+    <!-- PortProgram.cs parses the root/port arguments and then calls the
+         author's Program.Main unchanged (docs/PORTING.md steps 7 and 9). -->
+    <StartupObject>Server.PortProgram</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />

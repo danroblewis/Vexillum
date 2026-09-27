@@ -46,13 +46,27 @@ come from two ordinary sprite draws of the render target:
    `BlendState.Additive`
 
 The level render target is fully opaque (sky + main + borders cover the
-window), so alpha is 1 in both formulations. Implement it so the original
-`GameView.cs` keeps compiling: provide `Effect`/`EffectParameter` behaviour
-through the `Content.Load<Effect>("Blur")` path in the XNA-compat shim
-(a `BlurEffect` object whose `Parameters["d"].SetValue` stores the offset and
-whose `CurrentTechnique.Passes[0].Apply()` is a no-op), and do the two draws
-in the one `// PORT:`-marked spot in `DrawStuff`. Keep the content name
-`Blur`. Record the change in `docs/PORTING.md` step 8.
+window), so alpha is 1 in both formulations.
+
+**What is implemented (step 8, 2026-09-27):** the real shader, no edit to
+`GameView.cs`. On DesktopGL an MGFX effect stores GLSL *source*, so
+`Shims/XnaCompat/Content/XnaEffectContent.cs` assembles an MGFX v10 blob in
+code (`BlurMgfx`) with `Blur.fx` transcribed to GLSL, and registers a
+content reader for the XNA `EffectReader` type string
+(`ContentTypeReaderManager.AddTypeCreator`, which is consulted before type
+resolution) that skips the DX9 bytes of the shipped `Blur.xnb` and returns
+that effect. `PortProgram` calls `XnaEffectContent.Register()` before the
+author's `Main`. The GLSL must keep the names of MonoGame's SpriteEffect
+vertex shader (`vTexCoord0`, `vFrontColor`, `ps_s0`, `ps_uniforms_vec4[]`)
+because `DrawStuff` applies the pass inside an Immediate-mode batch.
+
+**Fallback** (only if a driver rejects the GLSL): the two draws above in a
+`// PORT:`-marked spot in `DrawStuff`, but note that on MonoGame
+`Color.White * 0.5f` also halves alpha and `BlendState.Additive` multiplies
+by source alpha (0.25x total). Correct form inside the existing
+NonPremultiplied batch: draw at (0,0) with `Color.White`, then at the offset
+with `new Color(255, 255, 255, 128)`. Keep the content name `Blur`. Record
+changes in `docs/PORTING.md` step 8.
 
 Do **not** install `dotnet-mgfxc`, do not run `mgfxc_wine_setup.sh`, and do
 not commit an `.xnb` compiled on a Windows machine unless the owner asks:

@@ -44,10 +44,10 @@ extend it; replace it.
 | 4 | `Shims/System.Drawing` (see CLAUDE.md rule 16) so `Util`, `Level`, `ClientLevel`, `MenuLevel`, `LevelLoader`, `AssetManager`, `TerrainParticle`, `GraphicsHelper`, `TextRenderer`, `ScrollPanel`, `ChatPanel`, `ServerLevel`, `MapCreator` compile unchanged. `Bitmap` over `StbImageSharp` decode; `Save(stream, ImageFormat.Png)` via a minimal PNG encoder (zlib is in the BCL). | todo | Terrain-hash test on the two shipped maps before calling it done. |
 | 5 | `Shims/Steamworks`: complete the `Steamworks` namespace (`CSteamID`, `HAuthTicket`, `AppId_t`, `Callback<T>`, `GameOverlayActivated_t`, `ValidateAuthTicketResponse_t`, `EAuthSessionResponse`, `EBeginAuthSessionResult`, `SteamAPI`, `SteamUser`, `SteamFriends`, `SteamUtils`, `Packsize.Test()`, `DllCheck.Test()`) as an offline implementation. | todo | Keep packet 1 unchanged (ticket may be empty, length 0). A real Steamworks.NET can be dropped in later because the names match. |
 | 6 | `Shims/Nuclex`: source port of Nuclex `Support`, `Input`, `UserInterface` to MonoGame (drop DirectInput/SlimDX, `NMock`, unit tests, `System.Windows.Forms` uses inside Nuclex.Input). `InputManager` reads MonoGame `Keyboard`/`Mouse` state and `Window.TextInput`. All original dialogs, `CustomInputControl(+Renderer)` and the Darkness skin then work unchanged. `Awesomium` files stay commented out as they are. | todo | Vendor the r1404 sources under `Shims/Nuclex/` with the CPL notice. |
-| 7 | `Shims/System.Windows.Forms`: `MessageBox.Show` (logs + stderr), `KeysConverter`, `IMessageFilter`, `Message`, `Application.AddMessageFilter` (no-op). Original `Program.cs` files then compile; the `#if WINDOWS \|\| XBOX` in the client `Program.cs` is satisfied by defining `WINDOWS` in the new csproj (it is the author's constant, not a platform switch). New `--root/--connect` handling goes in a small `Launcher` wrapper project or a `// PORT:` block, owner's choice. | todo | |
-| 8 | Content: keep `.xnb` fonts/sounds. `Blur.xnb` is XNA DX9 bytecode and cannot load; MonoGame's `mgfxc` needs Wine, which is banned. Reproduce the blur without a shader: `Blur.fx` computes `(tex(uv) + tex(uv + d)) / 2`, so draw the render target twice at half alpha, the second copy offset by `d * targetSize`, with an additive blend, inside the MonoGame `Effect` shim (`Shims/XnaCompat/Effect`) or a `// PORT:` edit in `GameView.LoadShaders`/`DrawStuff`. Content name `Blur` stays. | todo | Pixel-identical for opaque targets, which the level render always is. |
-| 9 | Server on `net9.0`: no graphics device; `Util.IsServer` paths already skip texture loads. `ServerStart` compiles against the WinForms shim but is not shipped; default `settings.txt` creation moves to launcher code. `Heartbeat`/`HttpGet` must time out quietly (`HttpWebRequest` still exists in .NET 9, obsolete but functional; `Timeout = 10000` is already set). | todo | |
-| 10 | Runtime directory: `dotnet run` for client and server must use `Test/` (or a copy) as working directory; document in the run skill. Add `Content/`, `Maps/`, `Server/` copy-to-output or a `--root` argument. | todo | |
+| 7 | `Shims/System.Windows.Forms`: `MessageBox.Show` (logs + stderr), `KeysConverter`, `IMessageFilter`, `Message`, `Application.AddMessageFilter` (no-op). Original `Program.cs` files then compile; the `#if WINDOWS \|\| XBOX` in the client `Program.cs` is satisfied by defining `WINDOWS` in the new csproj (it is the author's constant, not a platform switch). New `--root/--connect` handling goes in a small `Launcher` wrapper project or a `// PORT:` block, owner's choice. | entry points done (2026-09-27); WinForms shim types still todo | Neither `Program.cs` is edited. `ZombieSurvival/PortProgram.cs` (`<StartupObject>Vexillum.PortProgram`) and `Server/PortProgram.cs` (`<StartupObject>Server.PortProgram`) parse `--root <dir>` (chdir first), `--connect <host>:<port>` / `--port <n>`, `--help`, ignore unknown arguments, and invoke the author's non-public `Program.Main` through reflection, unwrapping `TargetInvocationException` and rethrowing with `ExceptionDispatchInfo` so the author's `UnhandledException` handler still runs and the process exits non-zero (verified on .NET 9: exit code 134 for main-thread and background-thread crashes). `VEXILLUM_LOG_STDOUT=1` adds a `ConsoleTraceListener` to `Trace.Listeners`, which verified empirically routes `Debug.Print` to stdout on .NET 9 (Debug builds only: `Debug.Print` is `[Conditional("DEBUG")]` and the SDK defines `DEBUG` for `-c Debug`; Release keeps only `debug_client.log`). No `// PORT:` edit in `Util.Debug` was needed. `--connect` starts a background thread that polls every 250 ms (60 s max) for `Vexillum.game.View is MainMenuView` with the menu visible (that assignment is the last thing `LoadContent` does) and then calls `game.ConnectWhenServerReady(host, port, 40)` on that thread, the same call `Client.cs` makes from its reader thread on packet 253. Two clients in one `--root` work because `Util.OpenLockFile` swallows the sharing violation. If `Program.Main` returns without creating the game (`SteamManager.Initialize()` false) the client exits 1 with a stderr line. Server: `Program.Main` returns after starting the threads; foreground threads keep a .NET 9 process alive (verified), and `PortProgram` additionally joins `Server.stepThread` (via reflection) so the exit is explicit, then flushes the log. Both files were compiled against stubs of the touched members (`Program`, `Util`, `Vexillum`, `AbstractView`, `MainMenuView`, `Menu.visible`, `Server.running`/`stepThread`); the real build waits on steps 4-6. |
+| 8 | Content: keep `.xnb` fonts/sounds. `Blur.xnb` is XNA DX9 bytecode and cannot load; MonoGame's `mgfxc` needs Wine, which is banned. Reproduce the blur without a shader: `Blur.fx` computes `(tex(uv) + tex(uv + d)) / 2`, so draw the render target twice at half alpha, the second copy offset by `d * targetSize`, with an additive blend, inside the MonoGame `Effect` shim (`Shims/XnaCompat/Effect`) or a `// PORT:` edit in `GameView.LoadShaders`/`DrawStuff`. Content name `Blur` stays. | done (2026-09-27), zero edits to `GameView.cs` | The author's `Content.Load<Effect>("Blur")` now loads the shipped `Test/Content/Blur.xnb` unchanged. `ContentTypeReaderManager.LoadAssetReaders` looks the XNB's reader string up in its type-creator table *before* resolving the type, so `Vexillum.Port.XnaEffectContent.Register()` (`Shims/XnaCompat/Content/XnaEffectContent.cs`, called by `PortProgram` before `Program.Main`) registers a creator for the XNA string `Microsoft.Xna.Framework.Content.EffectReader, Microsoft.Xna.Framework.Graphics, Version=4.0.0.0, ...`. That reader skips the DX9 bytecode and returns `new Effect(device, BlurMgfx.Bytes)`, an MGFX v10 / OpenGL-profile blob assembled in code (`BinaryWriter`, layout from `Effect.ReadEffect` and `Shader(BinaryReader)` in 3.8.4): on DesktopGL an MGFX shader is GLSL *source*, so no `mgfxc` and no Wine. The pixel shader is `Blur.fx` transcribed to GLSL (`(tex(uv) + tex(uv + d)) / 2`, alpha from `tex(uv)`), with the uniform/varying names MonoGame's own `SpriteEffect` vertex shader uses (`vTexCoord0`, `vFrontColor`, `ps_s0`, `ps_uniforms_vec4[]`), because `GameView.DrawStuff` applies the pass inside an Immediate-mode `SpriteBatch` (the XNA idiom), and MonoGame's `SpriteBatch` behaves the same way (verified in the decompiled 3.8.4 `SpriteBatch`/`SpriteBatcher`/`EffectPass`). `Parameters["d"]` is a `Vector`/`Single` 1x2 parameter, technique `Desaturate`, pass `Pass1`. Verified on this Mac with a scratch MonoGame app that loaded the real `Blur.xnb` through the reader and ran the exact `DrawStuff` sequence into a render target: `d = 0` gives 529200/529200 pixels identical to the source, non-zero `d` gives the point-sampled shifted average with max error 1/255 (rounding of `.5`), alpha stays 255, and a plain batch afterwards draws normally. The two-draw fallback is documented in the open TODOs with the corrected tint/blend maths in case a driver rejects the GLSL. |
+| 9 | Server on `net9.0`: no graphics device; `Util.IsServer` paths already skip texture loads. `ServerStart` compiles against the WinForms shim but is not shipped; default `settings.txt` creation moves to launcher code. `Heartbeat`/`HttpGet` must time out quietly (`HttpWebRequest` still exists in .NET 9, obsolete but functional; `Timeout = 10000` is already set). | startup part done (2026-09-27); headless run still to verify | `Server/PortProgram.cs` creates `Server/settings.txt` from a verbatim copy of `HostServerForm.defaultConfig` when it is missing and rewrites only the `port` line when `--port` differs from the file (the MCP tools pass 24224, which matches the checked-in `Test/Server/settings.txt`, so it is not modified). `ServerStart` stays out of the solution. Still to verify once `Game` builds: `Server` runs with no graphics device (`Util.IsServer` paths), `Heartbeat.Send` fails quietly offline, `Ready for connections` appears. |
+| 10 | Runtime directory: `dotnet run` for client and server must use `Test/` (or a copy) as working directory; document in the run skill. Add `Content/`, `Maps/`, `Server/` copy-to-output or a `--root` argument. | done (2026-09-27) | `--root <dir>` on both entry points (`Directory.SetCurrentDirectory` before anything else; default: current directory). One MonoGame difference had to be handled: `ContentManager` resolves `Content.RootDirectory` against `TitleContainer.Location` = the executable's directory (on macOS `../Resources` of it first), not the current directory, so with `dotnet VexillumGame.dll --root Test` every `Content.Load` would look in `bin/Debug/net9.0/Content`. `Vexillum.Port.RuntimeDirectory.UseCurrentDirectoryForContent()` (`Shims/XnaCompat/Content/RuntimeDirectory.cs`) sets the internal `TitleContainer.Location` property to the current directory by reflection (verified on 3.8.4; the client logs a warning if the property is gone) so `Content/`, `Maps/`, `Server/`, `settings.xml`, `controls.xml` and the Nuclex skin all resolve under `--root`. No copy-to-output; `Test/` stays the single runtime directory. |
 | 11 | Smoke test on loopback: server up, client connects with the random identity, reaches packet 9, moves, fires, terrain deforms, disconnect clean. Automate through the MCP `smoke_test` tool. | todo | |
 | 12 | Cleanup: remove `lib/MonoGame`, `dlls/`, `BUILD_NOTES.md`, `build.sh`, `Icons.res` references, `.DS_Store` files; update `README.md` build section. | todo | Keep `Test/*.exe` as the reference build. |
 
@@ -69,6 +69,68 @@ extend it; replace it.
 * `dlls/`, `lib/`, `build.sh`, `BUILD_NOTES.md` are unreferenced by any
   project or solution file and can be deleted in step 12.
 
+## Open TODOs left by steps 7, 8, 10 (2026-09-27) — for the integration agent
+
+* **Build**: `Vexillum.sln` still fails with the step-3 baseline of 132 errors,
+  all in `Game` (Nuclex 113, System.Drawing 15, WinForms 4); nothing in
+  `PortProgram.cs`, `XnaEffectContent.cs` or `RuntimeDirectory.cs` is on the
+  list (`Shims/XnaCompat` builds; the two `PortProgram.cs` files compile
+  against stubs). After steps 4-6 land, build the solution and verify:
+  * `ZombieSurvival/Vexillum.csproj` and `Server/Server.csproj` differ from
+    step 1 only by `<StartupObject>`; the author's `Program` classes are
+    non-public and reflection finds `Main` (`BindingFlags.NonPublic |
+    Static`). If the Nuclex port makes `Program.cs` need anything else, keep
+    it in the csproj, not in `Program.cs`.
+* **Steam gate**: the author's client `Main` returns (and `PortProgram` exits
+  1 with "Vexillum did not start") unless `SteamManager.Initialize()` is true.
+  The current `Shims/Steamworks` stub has `SteamAPI.Init()` returning `false`
+  and `Packsize.Test`/`DllCheck.Test` as fields; step 5 must make `Init()`
+  return `true` offline (CLAUDE.md rule 17) before the client can start.
+* **Runtime checks** (`run_server`, `run_client`, `smoke_test`):
+  * server: `PortProgram: cwd=.../Test port=24224` then `Ready for
+    connections`; Ctrl-C/SIGTERM path: the author's `CancelKeyPress` handler
+    calls `server.Stop()`, which ends the stepping thread and the join.
+  * client without `--connect`: main menu, debug lines on stdout under
+    `VEXILLUM_LOG_STDOUT=1` (Debug build).
+  * client with `--connect 127.0.0.1:24224`: log shows `PortProgram: main
+    menu ready after N ms, connecting to ...`, then the usual `Connecting
+    to`, `Set terrain state`. If the menu never becomes visible (e.g. the
+    Nuclex port changes when `Menu.Show()` runs), the thread gives up after
+    60 s and logs it; relax the condition to `View is MainMenuView` then.
+  * blur: the level view must look identical to the reference build and
+    shake on explosions. If `Content.Load<Effect>("Blur")` throws
+    `ContentLoadException` or `InvalidOperationException("Shader Compilation
+    Failed")`, the GLSL in `BlurMgfx.PixelShaderGlsl` was rejected by that
+    driver; compare with the SpriteEffect GLSL that
+    `scratch/parse_mgfx.py`-style dumping of the embedded MGFX shows and
+    adjust. Only then fall back to the two-draw `// PORT:` edit in
+    `GameView.DrawStuff` with these corrected maths (the skill text's
+    `White * 0.5f` + `Additive` is wrong on MonoGame: `Color * float` also
+    scales alpha and `Additive` uses `SourceAlpha`, giving 0.25x): keep the
+    existing NonPremultiplied batch, draw `shaderTarget` at (0,0) with
+    `Color.White`, then draw it again at `(-d.X * width, -d.Y * height)` with
+    `new Color(255, 255, 255, 128)`; at `d = 0` that is exactly the source
+    (`0.5x + 0.5x`), otherwise the shifted average within 1/255.
+* **RenderTargetUsage**: `GameView.CloneRenderTarget` keeps the default
+  `DiscardContents`, which MonoGame implements as a clear to
+  `GraphicsDevice.DiscardColor` on `SetRenderTarget` (decompiled
+  `ApplyRenderTargets`). No `// PORT:` edit: `ClientLevel.Draw` covers the
+  whole 840x630 target every frame (both shipped maps carry an 840x630
+  `sky.jpg` drawn twice at `xOffset` and `xOffset - 840`, then main/borders),
+  so the clear is always overwritten, and XNA's `DiscardContents` had the
+  same contract. If a purple frame ever shows (a map without `sky`, or the
+  camera outside the level), add `false, SurfaceFormat.Color,
+  DepthFormat.None, 0, RenderTargetUsage.PreserveContents` to that
+  constructor as a marked one-line edit. `ScrollPanel` (step 6) creates its
+  own targets; check it the same way.
+* **Release builds** do not echo `Util.Debug` to stdout (`Debug.Print` is
+  compiled out); the MCP tools build Debug, so nothing to do unless the
+  smoke test moves to Release, in which case the fallback is the one-line
+  `// PORT:` `Console.WriteLine` in `Util.Debug`.
+* `Trace.Listeners.Add(new ConsoleTraceListener())` also echoes any
+  `Debug.WriteLine` from MonoGame itself; harmless, but grep the smoke log
+  for `Ready for connections`/`Set terrain state`, not for line counts.
+
 ## Decisions (settled 2026-09-27 by the preservation rule)
 
 * **UI:** port Nuclex from source (option 1). Myra or hand-rolled dialogs
@@ -76,9 +138,12 @@ extend it; replace it.
 * **Images:** `StbImageSharp` (public domain, decode only) inside the
   `System.Drawing` shim; PNG encode for `Bitmap.Save` via a minimal
   encoder over `System.IO.Compression.ZLibStream`. ImageSharp is not needed.
-* **Shader:** no shader compiler at all; the blur is reproduced with two
-  sprite draws (step 8). If MonoGame ever ships a Wine-free effect compiler,
-  the original `Blur.fx` can be compiled again and the workaround removed.
+* **Shader:** no shader compiler at all. The blur runs as a real pixel shader
+  after all: on DesktopGL an MGFX effect carries GLSL source, so the blob is
+  assembled in code and served for the shipped `Blur.xnb` through a
+  registered content reader (step 8); the two-draw fallback is kept in the
+  open TODOs. If MonoGame ever ships a Wine-free effect compiler, the
+  original `Blur.fx` can be compiled again and the hand-assembled blob removed.
 * **Steam:** the `Steamworks` namespace is shimmed offline; the names match
   Steamworks.NET so a real integration can return later without edits.
 

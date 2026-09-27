@@ -7,6 +7,9 @@
     <AssemblyName>VexillumGame</AssemblyName>
     <RootNamespace>Vexillum</RootNamespace>
     <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+    <!-- PortProgram.cs parses the root/connect arguments and then calls the
+         author's Program.Main unchanged (docs/PORTING.md step 7). -->
+    <StartupObject>Vexillum.PortProgram</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="$(MonoGameVersion)" />
