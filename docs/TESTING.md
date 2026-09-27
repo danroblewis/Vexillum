@@ -260,6 +260,7 @@ deliberate, named commit (invariant 11). Un-skip the test in that commit.
 | `Protocol/EncodingTests.Strings_of_128_bytes_or_more_round_trip` | MiscUtil `Write7BitEncodedInt` writes a stray `0x00` for lengths of 128 or more |
 | `Protocol/RejectionTests.Name_of_128_characters_is_accepted` | same 7-bit length bug: the 128-character name arrives as an empty name plus a garbage ticket length |
 | `Protocol/RejectionTests.Name_of_129_characters_is_rejected_as_invalid` | same 7-bit length bug: the server never sees the name it should reject |
+| `Protocol/BufferedPacketTests.Health_packet_reaches_the_other_clients_as_soon_as_the_server_writes_it` | `ServerPlayer.SendPlayerHealth` (and `SendGameMode*`, `SendSound`, `SendGrapplingHook`) write without `WriteData`, so 110/120-122/98/22 only leave with the next flushed packet; the actual behaviour is asserted by `Health_packet_only_leaves_the_server_together_with_the_next_flushed_packet` |
 | `World/TerrainArrayTests.ToBytes_and_SetBytes_round_trip_a_3x3_array` | `TerrainArray.ToBytes`/`SetBytes` overrun the `(w*h)/8` buffer when `w*h` is not a multiple of 8 |
 | `World/EntityOutlineTests.NextID_never_returns_zero` | `Entity.NextID` hands out id 0 (the "no entity" outline value) after the `short` counter wraps |
 | `World/HealthAndHitscanTests.Setting_health_to_zero_before_the_entity_is_added_does_not_throw` | `HumanoidEntity.Health` setter calls `Level.OnEntityDeath` while `Level` is null |

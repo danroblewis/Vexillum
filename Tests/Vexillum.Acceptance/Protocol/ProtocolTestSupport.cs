@@ -213,6 +213,34 @@ namespace Vexillum.Acceptance.protocol
         }
     }
 
+    internal static class Teams
+    {
+        /// <summary>
+        /// Joins as Blue. With the default bots the second human always lands on
+        /// Green (RemoveBot drops a green bot on a tie, then GetSpawnClass picks
+        /// the smaller team), so the first human must be Blue for the two to be
+        /// enemies; its class is random on an empty server, so retry until it is
+        /// (each failed attempt leaves and waits for its bots to be cleared).
+        /// </summary>
+        public static ScriptedClient JoinAsBlue(ServerProcess server, ServerSide side, out string name)
+        {
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                name = Names.Unique("alice");
+                ScriptedClient cand = new ScriptedClient(server);
+                cand.JoinGame(name);
+                if (cand.Me.Class == global::Vexillum.Game.PlayerClass.Blue)
+                    return cand;
+                cand.Dispose();
+                if (server.WaitFor(name + " disconnected", 10) == null)
+                    throw new TimeoutException(name + " was not logged as disconnected");
+                if (!Poll.Until(() => side.BotNames().Count == 0, TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("bots were not cleared once " + name + " left");
+            }
+            throw new TimeoutException("no Blue spawn in 10 attempts");
+        }
+    }
+
     /// <summary>Terrain lookups on the snapshot a client received (world y up).</summary>
     internal static class Ground
     {

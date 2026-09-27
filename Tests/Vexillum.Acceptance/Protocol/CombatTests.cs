@@ -297,5 +297,49 @@ namespace Vexillum.Acceptance.protocol
                 }
             }
         }
+
+        // PROTO-28
+        [Fact]
+        public void Legacy_weapon_select_packet_10_selects_on_the_server_without_an_echo()
+        {
+            string alice = Names.Unique("alice"), bob = Names.Unique("bob");
+            using (ScriptedClient a = new ScriptedClient(fx.Server))
+            using (ScriptedClient b = new ScriptedClient(fx.Server))
+            {
+                a.JoinGame(alice);
+                b.JoinGame(bob);
+                ServerSide side = new ServerSide(fx.Server);
+                short idA = a.MyEntityId;
+                Assert.Equal(0, side.WeaponIndex(alice));
+                Assert.Equal(0, b.PlayerNamed(alice).WeaponIndex);
+
+                // 10 is the pre-13 form of the same request: the server selects (ServerPlayer
+                // case 10 calls SelectWeapon only) but, unlike 13, tells nobody
+                int ma = a.PacketCount, mb = b.PacketCount;
+                a.SendWeaponSelectLegacy(1);
+                Assert.True(Poll.Until(() => side.WeaponIndex(alice) == 1, TimeSpan.FromSeconds(5)), "server weapon index " + side.WeaponIndex(alice));
+                Assert.Equal("SMG", side.WeaponTypeName(alice));
+                Assert.True(b.NoneWithin<WeaponSelectPacket>(p => p.EntityId == idA, TimeSpan.FromSeconds(1), mb), "packet 10 is not echoed as 13");
+                Assert.True(a.NoneWithin<WeaponSelectPacket>(p => p.EntityId == idA, TimeSpan.FromMilliseconds(300), ma));
+                Assert.Equal(0, b.PlayerNamed(alice).WeaponIndex);   // the other client still believes index 0
+
+                // the legacy index is clamped the same way (Player.SelectWeapon)
+                a.SendWeaponSelectLegacy(7);
+                Assert.True(Poll.Until(() => side.WeaponIndex(alice) == 2, TimeSpan.FromSeconds(5)));
+                Assert.Equal("Sword", side.WeaponTypeName(alice));
+                Assert.True(b.NoneWithin<WeaponSelectPacket>(p => p.EntityId == idA, TimeSpan.FromMilliseconds(500), mb));
+
+                // the connection is intact and in sync: a following 13 is echoed as usual, no 254 came
+                mb = b.PacketCount;
+                a.SendWeaponSelect(0);
+                WeaponSelectPacket echo = b.WaitFor<WeaponSelectPacket>(p => p.EntityId == idA, TimeSpan.FromSeconds(5), mb);
+                Assert.Equal(0, echo.Index);
+                Assert.True(Poll.Until(() => side.WeaponIndex(alice) == 0, TimeSpan.FromSeconds(5)));
+                Assert.Equal("RocketLauncher", side.WeaponTypeName(alice));
+                Assert.False(a.IsClosed);
+                Assert.Empty(a.Packets<DisconnectPacket>());
+                Assert.Null(a.ReaderError);
+            }
+        }
     }
 }
