@@ -196,6 +196,16 @@ files were removed in step 12 (they are in git history before that commit).
   `Debug.WriteLine` from MonoGame itself; harmless, but grep the smoke log
   for `Ready for connections`/`Set terrain state`, not for line counts.
 
+## Debug host (added 2026-09-27, after the port)
+
+`Shims/DebugHost` (assembly `Vexillum.Port.DebugHost`) is dev tooling, not
+part of the game: when the launcher sees `VEXILLUM_DEBUG_PORT=<n>` it opens a
+localhost TCP console that evaluates C# with Roslyn scripting inside the
+process, with `Sync` to run on the game thread and reflection helpers for
+private state. `.claude/mcp/vexillum_dev.py` drives it (`proc_start`,
+`eval`, `probe`). No historical file changed for it; both `PortProgram.cs`
+files gained the env-var check.
+
 ## Decisions (settled 2026-09-27 by the preservation rule)
 
 * **UI:** port Nuclex from source (option 1). Myra or hand-rolled dialogs

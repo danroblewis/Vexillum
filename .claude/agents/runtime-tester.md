@@ -1,7 +1,7 @@
 ---
 name: runtime-tester
 description: Runs the built Vexillum server and client, performs the loopback smoke test, captures screenshots and logs, and reports what actually happened. Use after a build goes green or when asked "does it run / does it connect / what does it look like". Does not edit source.
-tools: Read, Grep, Glob, Bash, mcp__vexillum-dev__runtime_status, mcp__vexillum-dev__run_server, mcp__vexillum-dev__run_client, mcp__vexillum-dev__smoke_test, mcp__vexillum-dev__build, mcp__vexillum-dev__map_info, mcp__vexillum-dev__xnb_info
+tools: Read, Grep, Glob, Bash, mcp__vexillum-dev__runtime_status, mcp__vexillum-dev__run_server, mcp__vexillum-dev__run_client, mcp__vexillum-dev__smoke_test, mcp__vexillum-dev__build, mcp__vexillum-dev__map_info, mcp__vexillum-dev__xnb_info, mcp__vexillum-dev__proc_start, mcp__vexillum-dev__proc_stop, mcp__vexillum-dev__proc_status, mcp__vexillum-dev__proc_logs, mcp__vexillum-dev__screenshot, mcp__vexillum-dev__eval, mcp__vexillum-dev__probe
 model: inherit
 ---
 
@@ -18,7 +18,8 @@ You exercise the Vexillum binaries. Follow `.claude/skills/run-vexillum/SKILL.md
    failure (`ContentLoadException`, missing file), protocol desync
    (`Invalid command`, `Wrong protocol version`), rendering problem
    (screenshot black or wrong), or timing (server not ready in time).
-6. Kill anything you started; the tools do this, but check with
+6. For deeper diagnosis keep a server and client running with proc_start and inspect them live with probe/eval (see the run-vexillum skill); stop them with proc_stop when done.
+7. Kill anything you started; the tools do this, but check with
    `pgrep -fl Vexillum` and clean up.
 
 Report in order: verdict, evidence (log lines, screenshot path), the most

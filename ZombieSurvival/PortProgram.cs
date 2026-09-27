@@ -89,6 +89,17 @@ namespace Vexillum
                 StartConnectThread(connectHost, connectPort);
             }
 
+            // Optional in-process debug console for tooling (Shims/DebugHost):
+            // VEXILLUM_DEBUG_PORT=<n> makes the client evaluate C# snippets sent
+            // to 127.0.0.1:<n>. Never enabled by default.
+            string debugPortText = Environment.GetEnvironmentVariable("VEXILLUM_DEBUG_PORT");
+            int debugPort;
+            if (!string.IsNullOrEmpty(debugPortText) && int.TryParse(debugPortText, out debugPort) && debugPort > 0)
+            {
+                global::Vexillum.Port.Debugging.DebugHost.Start(debugPort, "client",
+                    delegate() { return Vexillum.game; }, null);
+            }
+
             // The author's entry point, unchanged. Program is the non-public
             // static class in Program.cs (inside "#if WINDOWS || XBOX"; the
             // csproj defines WINDOWS).
@@ -174,6 +185,7 @@ namespace Vexillum
             Console.WriteLine("  --root <dir>            run with <dir> as the working directory (Content/, Maps/, settings.xml)");
             Console.WriteLine("  --connect <host>:<port> join that server as soon as the main menu is loaded");
             Console.WriteLine("  VEXILLUM_LOG_STDOUT=1   echo the debug log to stdout (Debug builds)");
+            Console.WriteLine("  VEXILLUM_DEBUG_PORT=<n>  start the in-process debug console on 127.0.0.1:<n>");
         }
     }
 }

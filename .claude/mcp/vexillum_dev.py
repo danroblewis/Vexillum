@@ -12,7 +12,9 @@ through Bash even when the MCP server is not connected in their session.
 
 Tools: build, port_audit, invariant_check, preservation_check, runtime_status,
 run_server, run_client, smoke_test, read_log, map_info, extract_map,
-create_map, xnb_info, decompile.
+create_map, terrain_reference, xnb_info, decompile,
+proc_start, proc_stop, proc_status, proc_logs, screenshot, eval, probe
+(the last group manages long-running processes and the in-process C# debug console).
 """
 import glob
 import io
@@ -842,9 +844,245 @@ def decompile(assembly: str, type_name: str = "", max_lines: int = 400) -> str:
     return "\n".join(lines[:max_lines]) + (f"\n... {len(lines) - max_lines} more lines" if len(lines) > max_lines else "")
 
 
+# ---- persistent processes + in-process debugging --------------------------
+PROC_DIR = SCRATCH / "proc"
+DEFAULT_DEBUG_PORTS = {"server": 7801, "client": 7802}
+
+
+def _proc_meta(name: str) -> dict | None:
+    f = PROC_DIR / f"{name}.json"
+    if not f.exists():
+        return None
+    try:
+        m = json.loads(f.read_text())
+    except Exception:
+        return None
+    try:
+        os.kill(m["pid"], 0)
+        m["alive"] = True
+    except OSError:
+        m["alive"] = False
+    return m
+
+
+def _proc_names() -> list[str]:
+    PROC_DIR.mkdir(parents=True, exist_ok=True)
+    return sorted(f.stem for f in PROC_DIR.glob("*.json"))
+
+
+def _client_name(instance: int) -> str:
+    return "client" if instance == 0 else f"client{instance}"
+
+
+def proc_start(target: str = "server", connect: str = "", port: int = 0, runtime_dir: str = "Test",
+               debug_port: int = 0, instance: int = 0, wait_seconds: int = 20) -> str:
+    """Start the server or a client and LEAVE IT RUNNING (unlike run_server/run_client).
+
+    target: 'server' or 'client'. connect: host:port for the client. instance:
+    0,1,2... to run several clients ('client', 'client1', ...). debug_port:
+    port for the in-process debug console (default 7801 server, 7802+instance
+    client; 0 = default; -1 = disabled). Waits up to wait_seconds for the
+    readiness marker. Use proc_stop to end it. State lives in /tmp/vexillum-dev/proc.
+    """
+    PROC_DIR.mkdir(parents=True, exist_ok=True)
+    if target not in ("server", "client"):
+        return "proc_start: target must be 'server' or 'client'"
+    name = "server" if target == "server" else _client_name(instance)
+    old = _proc_meta(name)
+    if old and old["alive"]:
+        return f"proc_start: {name} is already running (pid {old['pid']}); proc_stop it first"
+    cmd = _find_binary("VexillumServer" if target == "server" else "VexillumGame")
+    if not cmd:
+        return f"proc_start: no binary built for {target} (run build first)"
+    if target == "server" and port:
+        cmd += ["--port", str(port)]
+    if target == "client" and connect:
+        cmd += ["--connect", connect]
+    if debug_port == 0:
+        debug_port = DEFAULT_DEBUG_PORTS[target] + (instance if target == "client" else 0)
+    env = {"VEXILLUM_LOG_STDOUT": "1", "VEXILLUM_INSTANCE": str(instance)}
+    if debug_port > 0:
+        env["VEXILLUM_DEBUG_PORT"] = str(debug_port)
+    rt = ROOT / runtime_dir
+    log = PROC_DIR / f"{name}.log"
+    p = _launch(cmd, rt, log, env)
+    meta = {"name": name, "target": target, "pid": p.pid, "cmd": cmd, "cwd": str(rt), "log": str(log),
+            "debug_port": debug_port if debug_port > 0 else None, "port": (port or 24224) if target == "server" else (connect or "menu"), "started": time.strftime("%Y-%m-%d %H:%M:%S")}
+    (PROC_DIR / f"{name}.json").write_text(json.dumps(meta, indent=1))
+    marker = "Ready for connections" if target == "server" else ("Set terrain state" if connect else "PortProgram: cwd")
+    ready = _wait_for(log, marker, wait_seconds, p)
+    if p.poll() is not None:
+        (PROC_DIR / f"{name}.json").unlink(missing_ok=True)
+        return f"proc_start: {name} exited immediately with {p.returncode}\n{tail(log.read_text(errors='ignore'), 40)}"
+    dbg = ""
+    if debug_port > 0:
+        dbg = "debug console " + ("up" if "DebugHost: listening" in log.read_text(errors="ignore") else "not yet reported") + f" on 127.0.0.1:{debug_port}"
+    return (f"proc_start: {name} pid {p.pid} {'READY' if ready else 'started (marker not seen yet: ' + marker + ')'}; {dbg}\n"
+            f"log: {log}\n{tail(log.read_text(errors='ignore'), 15)}")
+
+
+def proc_stop(target: str = "all") -> str:
+    """Stop processes started with proc_start: target = all | server | client | client<N>."""
+    names = _proc_names() if target == "all" else [target]
+    out = []
+    for name in names:
+        m = _proc_meta(name)
+        if not m:
+            out.append(f"{name}: not tracked"); continue
+        if m["alive"]:
+            try:
+                os.killpg(m["pid"], signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            for _ in range(40):
+                try:
+                    os.kill(m["pid"], 0); time.sleep(0.1)
+                except OSError:
+                    break
+            else:
+                try: os.killpg(m["pid"], signal.SIGKILL)
+                except ProcessLookupError: pass
+            out.append(f"{name}: stopped (pid {m['pid']})")
+        else:
+            out.append(f"{name}: was not running")
+        (PROC_DIR / f"{name}.json").unlink(missing_ok=True)
+    return "\n".join(out) or "nothing to stop"
+
+
+def proc_status() -> str:
+    """List processes started with proc_start (pid, alive, ports, log) plus any other Vexillum processes."""
+    out = []
+    for name in _proc_names():
+        m = _proc_meta(name)
+        if not m:
+            continue
+        out.append(f"{name}: pid {m['pid']} {'ALIVE' if m['alive'] else 'DEAD'} target={m['target']} port={m['port']} debug_port={m['debug_port']} started={m['started']} log={m['log']}")
+        try:
+            out.append("   last: " + tail(Path(m["log"]).read_text(errors="ignore"), 1).strip()[:200])
+        except Exception:
+            pass
+    other = run(["pgrep", "-fl", "Vexillum(Game|Server).dll"], timeout=10)[1].strip()
+    tracked = {str(_proc_meta(n)["pid"]) for n in _proc_names() if _proc_meta(n)}
+    untracked = [l for l in other.splitlines() if l.split()[0] not in tracked]
+    if untracked:
+        out.append("untracked Vexillum processes (not started by proc_start): " + "; ".join(untracked))
+    return "\n".join(out) or "no tracked processes"
+
+
+def proc_logs(target: str = "server", lines: int = 80, grep: str = "") -> str:
+    """Tail the stdout/stderr log of a proc_start process (server | client | client<N>),
+    or 'client-file' / 'server-file' for the game's own debug_client.log / Server/debug_server.log
+    in the runtime dir. grep: regex to filter lines (case-insensitive)."""
+    if target in ("client-file", "server-file"):
+        rt = RUNTIME_DIR
+        p = rt / ("debug_client.log" if target == "client-file" else "Server/debug_server.log")
+    else:
+        m = _proc_meta(target)
+        if not m:
+            return f"no tracked process '{target}' (tracked: {', '.join(_proc_names()) or 'none'})"
+        p = Path(m["log"])
+    if not p.exists():
+        return f"no log at {p}"
+    text = p.read_text(errors="ignore")
+    if grep:
+        rx = re.compile(grep, re.I)
+        text = "\n".join(l for l in text.splitlines() if rx.search(l))
+    return tail(text, lines)
+
+
+def screenshot(name: str = "shot") -> str:
+    """Capture the display to a PNG (macOS screencapture) and return its path; read it with the Read tool."""
+    return _screenshot(name) or "screenshot unavailable on this platform"
+
+
+def _debug_call(target: str, code: str, timeout: int) -> dict:
+    import socket
+    m = _proc_meta(target)
+    if not m:
+        raise RuntimeError(f"no tracked process '{target}' (tracked: {', '.join(_proc_names()) or 'none'})")
+    if not m["alive"]:
+        raise RuntimeError(f"{target} (pid {m['pid']}) is not running")
+    if not m.get("debug_port"):
+        raise RuntimeError(f"{target} was started without a debug console (debug_port=-1)")
+    with socket.create_connection(("127.0.0.1", m["debug_port"]), timeout=timeout + 5) as sock:
+        sock.sendall((json.dumps({"code": code, "timeout": timeout * 1000}) + "\n").encode("utf-8"))
+        buf = b""
+        while not buf.endswith(b"\n"):
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            buf += chunk
+    return json.loads(buf.decode("utf-8"))
+
+
+def eval(target: str = "client", code: str = "", timeout: int = 15) -> str:
+    """Evaluate a C# script inside the running client or server (started with proc_start).
+
+    Script state persists between calls (send '!reset' to clear). Available in
+    scripts: Game (dynamic, the Vexillum.Vexillum instance on the client),
+    Server (dynamic, the Server.Server instance), Sync(() => ...) to run on the
+    game thread, Get(obj,"field")/Set/Call for private members, Static("Type","member"),
+    TypeOf("Name"), Dump(obj), Log(x). Usings: System, System.Linq, Vexillum.*,
+    Microsoft.Xna.Framework. The last expression's value is returned.
+    Examples: eval client 'Game.View.GetType().Name'
+              eval server 'Sync(() => ((IEnumerable<object>)Server.players).Count())'
+              eval client 'var c = Get(Game, "client"); Dump(Get(c, "player"))'
+    """
+    if not code:
+        return "eval: code is required"
+    try:
+        r = _debug_call(target, code, timeout)
+    except Exception as ex:
+        return f"eval: {ex}"
+    parts = []
+    if r.get("ok"):
+        parts.append(f"OK ({r.get('ms', '?')} ms)\n{r.get('result', '')}")
+    else:
+        parts.append(f"ERROR ({r.get('ms', '?')} ms)\n{r.get('error', '')}")
+    if r.get("log"):
+        parts.append("--- log ---\n" + r["log"].rstrip())
+    return "\n".join(parts)
+
+
+PROBES = {
+    "client": {
+        "view": "Game.View == null ? \"no view\" : Game.View.GetType().FullName",
+        "frame": "Sync(() => { var v = Game.View as GameView; return v == null ? \"not in game\" : \"frame=\" + v.Level.frame + \" time=\" + v.Level.GetTime() + \" entities=\" + v.Level.getEntities().Count + \" visible=\" + v.Level.visibleEntities; })",
+        "player": "Sync(() => { var v = Game.View as GameView; if (v == null) return \"not in game\"; var p = (LocalPlayer)Get(v, \"player\"); return p == null ? \"no local player\" : Dump(p) + \"\\nentity: \" + Dump(p.Entity); })",
+        "entities": "Sync(() => { var v = Game.View as GameView; if (v == null) return \"not in game\"; return v.Level.getEntities().Select(e => e.GetType().Name + \" #\" + e.ID + \" pos=\" + e.Position + \" vel=\" + e.Velocity + (e.player != null ? \" player=\" + e.player.name : \"\")).ToList(); })",
+        "players": "Sync(() => { var v = Game.View as GameView; if (v == null) return \"not in game\"; var c = Get(Get(v, \"player\"), \"client\"); var ps = (System.Collections.IEnumerable)Get(c, \"players\"); return ps.Cast<Player>().Select(p => p.name + \" class=\" + p.CurrentClass + \" score=\" + p.Score + \" ping=\" + p.pingString + \" hp=\" + (p.Entity != null ? p.Entity.Health.ToString() : \"-\") + \" pos=\" + (p.Entity != null ? p.Entity.Position.ToString() : \"-\")).ToList(); })",
+        "gamemode": "Sync(() => { var v = Game.View as GameView; if (v == null) return \"not in game\"; return Dump(((LocalPlayer)Get(v, \"player\")).GetGameMode()); })",
+        "threads": "System.Diagnostics.Process.GetCurrentProcess().Threads.Count + \" threads; GC=\" + (GC.GetTotalMemory(false) / 1048576) + \" MB\"",
+    },
+    "server": {
+        "players": "Sync(() => ((System.Collections.IEnumerable)Server.players).Cast<Player>().Select(p => p.name + \" class=\" + p.CurrentClass + \" score=\" + p.Score + \" ping=\" + p.pingString + \" bot=\" + p.isBot + \" hp=\" + (p.Entity != null ? p.Entity.Health.ToString() : \"-\") + \" pos=\" + (p.Entity != null ? p.Entity.Position.ToString() : \"-\")).ToList())",
+        "frame": "Sync(() => \"frame=\" + Server.level.frame + \" time=\" + Server.level.GetTime() + \" map=\" + Server.level.ShortName + \" entities=\" + Server.level.getEntities().Count + \" ready=\" + Server.ready)",
+        "entities": "Sync(() => Server.level.getEntities().Select(e => e.GetType().Name + \" #\" + e.ID + \" pos=\" + e.Position + \" vel=\" + e.Velocity + (e.player != null ? \" player=\" + e.player.name : \"\")).ToList())",
+        "gamemode": "Sync(() => Dump(Server.gameMode))",
+        "level": "Sync(() => Dump(Server.level))",
+        "threads": "System.Diagnostics.Process.GetCurrentProcess().Threads.Count + \" threads; GC=\" + (GC.GetTotalMemory(false) / 1048576) + \" MB\"",
+    },
+}
+
+
+def probe(target: str = "server", what: str = "players") -> str:
+    """Run a canned inspection script in a running process.
+    client: view | frame | player | entities | players | gamemode | threads
+    server: players | frame | entities | gamemode | level | threads
+    Use eval for anything else; 'list' shows the scripts."""
+    role = "server" if target == "server" else "client"
+    if what == "list":
+        return "\n".join(f"{k}: {v}" for k, v in PROBES[role].items())
+    code = PROBES[role].get(what)
+    if not code:
+        return f"unknown probe '{what}' for {role}; options: {', '.join(PROBES[role])}"
+    return eval(target, code)
+
+
 TOOLS = {f.__name__: f for f in [build, port_audit, invariant_check, preservation_check, runtime_status,
                                  run_server, run_client, smoke_test, read_log, map_info, extract_map,
-                                 create_map, terrain_reference, xnb_info, decompile]}
+                                 create_map, terrain_reference, xnb_info, decompile,
+                                 proc_start, proc_stop, proc_status, proc_logs, screenshot, eval, probe]}
 
 
 # ---- entry points -----------------------------------------------------------

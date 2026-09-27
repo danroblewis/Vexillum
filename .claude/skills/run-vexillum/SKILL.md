@@ -32,6 +32,36 @@ via `dotnet`, else nothing. Build first with the `build-loop` skill.
   server logs `logged in as` and the client log shows the level finish
   (packet 9) without `Disconnected`. Returns both logs.
 
+## Persistent runs and live debugging
+
+The timed tools stop what they start. To keep things running across several
+tool calls use the `proc_*` family:
+
+* `proc_start(target="server", port=24224)` then
+  `proc_start(target="client", connect="127.0.0.1:24224", instance=0)`;
+  more clients with `instance=1,2,...` (tracked as `client1`, `client2`).
+* `proc_status()`, `proc_logs(target, lines, grep)`, `screenshot()`,
+  `proc_stop(target="all")`. Always stop what you started.
+* `eval(target, code)` evaluates C# inside that process (Roslyn scripting,
+  variables persist per process; send `!reset` to clear). Globals: `Game`
+  (client, dynamic `Vexillum.Vexillum`), `Server` (dynamic `Server.Server`),
+  `Sync(() => expr)` runs on the game/step thread (use it for anything that
+  reads or mutates level/entity state), `Get(obj, "name")`, `Set`, `Call`,
+  `Static("Type", "member")`, `TypeOf`, `Dump(obj)`, `Log(x)`.
+  Examples:
+  - `eval client 'Game.View.GetType().Name'`
+  - `eval client 'Sync(() => ((GameView)Game.View).Level.frame)'`
+  - `eval client 'Sync(() => { var p = (LocalPlayer)Get((GameView)Game.View, "player"); p.Entity.Position += new Vec2(0, 50); return p.Position; })'`
+  - `eval server 'Sync(() => Server.level.getEntities().Count)'`
+* `probe(target, what)` is a shortcut for the common inspections:
+  client `view|frame|player|entities|players|gamemode|threads`, server
+  `players|frame|entities|gamemode|level|threads`; `what="list"` prints the
+  scripts, which are good starting points for your own `eval`.
+
+The console is only present when the process was started by `proc_start`
+(env `VEXILLUM_DEBUG_PORT`); it listens on 127.0.0.1 only. A script that
+hangs the game thread is reported as a `Sync` timeout, not killed.
+
 ## Interpreting logs
 
 `Util.Debug` prefixes lines with `[yyyy-MM-dd HH:mm:ss]`. Typical client

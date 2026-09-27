@@ -200,9 +200,11 @@ raw shell for these; they parse errors and capture logs.
     `Util.IsServer` guards stay in place.
 19. New entry-point code (not the author's) may add `--root <dir>`,
     `--connect <host>:<port>`, `--port <n>` and honour
-    `VEXILLUM_LOG_STDOUT=1` (echo `Util.Debug` to stdout) so the MCP
-    `smoke_test` tool can drive both programs. Without `--connect` the client
-    behaves exactly as before.
+    `VEXILLUM_LOG_STDOUT=1` (echo `Util.Debug` to stdout) and
+    `VEXILLUM_DEBUG_PORT=<n>` (in-process debug console, `Shims/DebugHost`)
+    so the MCP tools can drive and inspect both programs. Without
+    `--connect` the client behaves exactly as before; without the env vars
+    nothing extra runs.
 20. `Lzma/` and `Game/Game/util/misc/` (Jon Skeet's MiscUtil) are vendored
     third-party code: touch only their project files.
 21. Port one hazard class per commit (see `docs/PORTING.md` steps). Each
@@ -242,8 +244,23 @@ raw shell for these; they parse errors and capture logs.
   `build-fixer` (drives the build green under the invariants),
   `netcode-guardian` (reviews protocol-touching diffs), `runtime-tester`
   (runs the game and reports what happened).
-* MCP server `vexillum-dev` (`.claude/mcp/vexillum_dev.py`, via `uv`):
-  `build`, `port_audit`, `invariant_check`, `runtime_status`, `run_server`,
-  `run_client`, `smoke_test`, `map_info`, `extract_map`, `create_map`,
-  `xnb_info`, `decompile`. Tool docs are in the server file; `runtime_status`
-  is the right first call in a fresh session.
+* MCP server `vexillum-dev` (`.claude/mcp/vexillum_dev.py`, launched by
+  `.claude/mcp/serve.sh`; also a CLI: `python3 .claude/mcp/vexillum_dev.py <tool> k=v`):
+  - build and checks: `build`, `port_audit`, `invariant_check`,
+    `preservation_check`, `runtime_status`;
+  - timed runs: `run_server`, `run_client`, `smoke_test` (start, capture, stop);
+  - persistent runs: `proc_start` / `proc_stop` / `proc_status` / `proc_logs`
+    / `screenshot` keep a server and any number of clients running across
+    tool calls (state in `/tmp/vexillum-dev/proc`);
+  - in-process debugging: `eval` runs a C# script inside a running client or
+    server (Roslyn scripting, state persists; `Game`/`Server` dynamics,
+    `Sync(() => ...)` for the game thread, `Get`/`Set`/`Call` for private
+    members, `Dump`); `probe` runs canned inspections (players, entities,
+    frame, view, gamemode, level, threads). This needs the process started
+    by `proc_start` (it sets `VEXILLUM_DEBUG_PORT`); the console lives in
+    `Shims/DebugHost` and is never active otherwise;
+  - content: `map_info`, `extract_map`, `create_map`, `terrain_reference`,
+    `xnb_info`, `decompile`.
+  Tool docs are in the server file; `runtime_status` is the right first call
+  in a fresh session. Do not run two servers on one port: timed and
+  persistent tools share port 24224 unless you pass `port=`.
