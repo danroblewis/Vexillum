@@ -431,6 +431,37 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
   joins while the single bot is on the other team. Found by the acceptance
   harness (Tests/Vexillum.Acceptance, `KnownServerBugs`); tests keep
   `maxbots` at the default 6 or use `maxbots 1` for single-client runs.
+  Also reproduced by a level change (`/newgame`, a win) that drops two
+  connected humans: `setLevel` adds `maxbots` bots whose `AddPlayer` tasks
+  interleave with the two removals, and the second removal can meet a tied
+  count with no bot on the team it picks. Note that `players.Count` includes
+  every accepted connection, logged in or not, so an idle socket counts as a
+  human for the fill. The gameplay tests (Tests/Vexillum.Acceptance/Gameplay,
+  `GameplayFixture`) keep `Server.maxBots` equal to the number of open
+  connections through the debug console and change level with a single
+  connected client.
+* `PlayerList.Save` opens `<list>.txt` in the working directory with
+  `FileMode.Truncate` while `Load` reads `Server/<list>.txt`, so `/op`,
+  `/deop`, `/ban` and `/unban` never persist ("Error saving ops list" in the
+  log); the in-memory list works until the server restarts.
+* `SurvivalGameMode.PlayerHealthChanged` queues the health packet (110)
+  through `Server.SendPlayerHealth` → `AddTask`. When the death is triggered
+  off the `Server Main` thread (the `/green` and `/blue` chat commands →
+  `ResetPlayer`), `SetClass(Spectator)` → `SetType` has reset `Health` to
+  `MaxHealth` by the time the task runs, so the clients are told health 100
+  for a player that just died. Deaths on the game thread (hitscans,
+  explosions) report 0.
+* `SurvivalGameMode.TakeFlag` removes the taken flag twice (`RemoveFlag`,
+  then `level.TakeFlag` → `RemoveFlag`), so every client receives two 41
+  packets for the flag entity.
+* `SurvivalGameMode.OnFlagCollide` is asymmetric: a green player cannot pick
+  up a dropped blue flag while either drop timer runs, a blue player picks up
+  a dropped green flag at once (no guard on the blue branch).
+* `ServerPlayer.SendPlayerHealth`, `SendGameModeByte/Short/String`,
+  `SendSound` and `SendGrapplingHook` write into the buffer without
+  `WriteData`, so 110/120/121/122/98/22 only leave with the next flushed
+  packet (a capture arrives as 40, then 121 and 120 with the 131; a hitscan's
+  110 waits for the next 30/31 broadcast).
 * `Vexillum.BeginSpriteBatch(Effect)` ignores the effect parameter (see
   ARCHITECTURE.md rendering notes). Behaviour depends on Immediate mode.
 * `Level.Explode(int,int,int,Player,Weapon)` seeds `Random` with
