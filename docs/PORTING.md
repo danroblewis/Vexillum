@@ -424,7 +424,16 @@ independent Python SHA-256 of `TerrainArray.ToBytes()` for both shipped maps
   `movement[3]` against `jumping` (indices shifted by one) before assigning
   correctly; the net effect is that `movementChanged` fires too often.
 * `Server.Chat` `/kick` and `/ban` compare `p.name` (the issuer) instead of
-  `other.name`, so they only ever hit the issuer.
+  `other.name`, so they only ever hit the issuer. The command also splits on
+  spaces, so a name containing a space (every offline identity, which is
+  `<random> <persona>`) can never be named at all; the e2e test
+  `test_disconnect_by_server_shows_the_reason_and_returns_to_the_menu`
+  renames its client to a one-word op name for that reason.
+* `ServerDialog.ShowHostDialog` checks for `./ops.txt` but writes
+  `Server/ops.txt`, so on a platform where `VexillumServerStart.exe` starts
+  it rewrites the ops file with the current username on every press (found
+  while writing `Tests/e2e/test_main_menu.py`; here `Process.Start` throws
+  first, so nothing is written).
 * `Server.IsFull` uses `>` so `maxPlayers + 1` players can join.
 * `Server.UpdateBots` loops forever on the `Server Main` thread when
   `RemoveBot` has to remove a bot but finds none of the class it picks
