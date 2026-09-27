@@ -12,6 +12,8 @@ namespace System.Drawing.Imaging
         private static readonly ImageFormat png = new ImageFormat(new Guid("b96b3caf-0728-11d3-9d7b-0000f81ef32e"));
         private static readonly ImageFormat jpeg = new ImageFormat(new Guid("b96b3cae-0728-11d3-9d7b-0000f81ef32e"));
         private static readonly ImageFormat gif = new ImageFormat(new Guid("b96b3cb0-0728-11d3-9d7b-0000f81ef32e"));
+        private static readonly ImageFormat memoryBmp = new ImageFormat(new Guid("b96b3caa-0728-11d3-9d7b-0000f81ef32e"));
+        private static readonly ImageFormat icon = new ImageFormat(new Guid("b96b3cb5-0728-11d3-9d7b-0000f81ef32e"));
 
         private readonly Guid guid;
 
@@ -29,6 +31,8 @@ namespace System.Drawing.Imaging
         public static ImageFormat Png { get { return png; } }
         public static ImageFormat Jpeg { get { return jpeg; } }
         public static ImageFormat Gif { get { return gif; } }
+        public static ImageFormat MemoryBmp { get { return memoryBmp; } }
+        public static ImageFormat Icon { get { return icon; } }
 
         public override bool Equals(object o)
         {
@@ -47,6 +51,8 @@ namespace System.Drawing.Imaging
             if (this == jpeg) return "Jpeg";
             if (this == bmp) return "Bmp";
             if (this == gif) return "Gif";
+            if (this == memoryBmp) return "MemoryBMP";
+            if (this == icon) return "Icon";
             return "[ImageFormat: " + guid + "]";
         }
     }
