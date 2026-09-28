@@ -354,7 +354,9 @@ namespace Vexillum.net
                             playerEntity.isPlayer = true;
                             p = new NetworkPlayer(name, playerEntity);
                             p.Entity = playerEntity;
+                            p.CurrentClass = PlayerClass.None; // PORT: fix: a new Player starts as Green (enum 0), so SetClass(Green) returned early and never called SetType (MaxHealth 0: dead, invisible)
                             player.GetGameMode().SetClass(p, newClass);
+                            playerEntity.Health = health; // PORT: fix: re-apply the sent health now that SetType has set MaxHealth
                             p.Inventory = weapons;
                             p.SelectWeapon(weaponIndex);
                             players.Add(p);
