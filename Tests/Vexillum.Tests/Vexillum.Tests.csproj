@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- xunit tests for the port (terrain hash, shims, protocol). Add test
+       files here; no csproj change should be needed. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Tests</AssemblyName>
+    <RootNamespace>Vexillum.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Pass -p:VexillumTestsNoGame=true to run the shim-only tests while
+         the Game project is still red (it drags in every shim). -->
+    <ProjectReference Include="../../Game/Game/Game.csproj" Condition="'$(VexillumTestsNoGame)' != 'true'" />
+    <ProjectReference Include="../../Shims/Drawing/Drawing.csproj" />
+    <ProjectReference Include="../../Shims/Steamworks/Steamworks.csproj" />
+  </ItemGroup>
+</Project>
