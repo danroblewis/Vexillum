@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Acceptance tests: drive the real server executable and the real game
+       classes (Level, TerrainArray, LevelLoader, StreamHelper) from xunit.
+       The harness lives in this project (ScratchRuntime, FreePort,
+       ServerProcess, DebugConsole, ScriptedClient, HeadlessLevel); test
+       files are added next to it, no csproj change needed. See docs/TESTING.md. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Acceptance</AssemblyName>
+    <RootNamespace>Vexillum.Acceptance</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Game/Game/Game.csproj" />
+    <ProjectReference Include="../../Lzma/Lzma.csproj" />
+    <ProjectReference Include="../../Shims/Steamworks/Steamworks.csproj" />
+    <ProjectReference Include="../../Shims/Drawing/Drawing.csproj" />
+    <!-- Built so ServerProcess can start Server/bin/<Config>/net9.0/VexillumServer
+         after `dotnet build Tests/Vexillum.Acceptance`; the tests never load it in-process. -->
+    <ProjectReference Include="../../Server/Server.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+</Project>

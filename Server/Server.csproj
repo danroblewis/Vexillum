@@ -82,5 +82,6 @@
     <ProjectReference Include="..\Shims\Steamworks\Steamworks.csproj" />
     <ProjectReference Include="..\Shims\WinForms\WinForms.csproj" />
     <ProjectReference Include="..\external\Nuclex.MonoGame\Nuclex.MonoGame.csproj" />
+    <ProjectReference Include="..\Shims\DebugHost\DebugHost.csproj" />
   </ItemGroup>
 </Project>

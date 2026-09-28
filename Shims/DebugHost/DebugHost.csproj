@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- In-process debug console for the port (not part of the historical
+       code). Enabled only when VEXILLUM_DEBUG_PORT is set by the launcher:
+       listens on 127.0.0.1:<port>, evaluates C# snippets with Roslyn
+       scripting inside the running client or server, and can marshal work
+       onto the game thread. Driven by .claude/mcp/vexillum_dev.py (eval/probe). -->
+  <PropertyGroup>
+    <AssemblyName>Vexillum.Port.DebugHost</AssemblyName>
+    <RootNamespace>Vexillum.Port.Debugging</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.12.0" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Game/Game/Game.csproj" />
+  </ItemGroup>
+</Project>

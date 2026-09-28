@@ -4,7 +4,7 @@
 #   make            compile everything (Debug)
 #   make test       run the unit tests (Tests/Vexillum.Tests: shims, terrain oracle)
 #   make acceptance run the acceptance tests (real server + scripted protocol clients)
-#   make e2e        run the end-to-end tests (real game windows; needs a display)
+#   make        run the end-to-end tests (real game windows; needs a display)
 #   make test-all   unit + acceptance
 #   make server     compile, then run the dedicated server from Test/
 #   make client     compile, then run the game from Test/ (main menu)
@@ -26,7 +26,7 @@ SERVER_EXE := Server/bin/$(CONFIG)/$(TFM)/VexillumServer
 CLIENT_EXE := ZombieSurvival/bin/$(CONFIG)/$(TFM)/VexillumGame
 ABS        := $(CURDIR)
 
-.PHONY: all build restore test acceptance e2e test-all clean server client play smoke dist release check help
+.PHONY: all build restore test acceptance test-all clean server client play dist release help
 
 all: build
 
@@ -47,9 +47,6 @@ acceptance: build
 	dotnet test Tests/Vexillum.Acceptance -c $(CONFIG) -nologo --no-build
 
 ## Run the end-to-end tests: real server + real game windows through the debug console (needs a display; opens windows).
-e2e: build
-	python3 -m pytest Tests/e2e -m e2e -x -q
-
 ## Unit tests followed by the acceptance tests.
 test-all: test acceptance
 

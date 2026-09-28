@@ -82,6 +82,16 @@ namespace Server
             }
 
 
+            // Optional in-process debug console for tooling (Shims/DebugHost):
+            // VEXILLUM_DEBUG_PORT=<n> makes the server evaluate C# snippets sent
+            // to 127.0.0.1:<n>. Never enabled by default.
+            string debugPortText = Environment.GetEnvironmentVariable("VEXILLUM_DEBUG_PORT");
+            int debugPort;
+            if (!string.IsNullOrEmpty(debugPortText) && int.TryParse(debugPortText, out debugPort) && debugPort > 0)
+            {
+                Vexillum.Port.Debugging.DebugHost.Start(debugPort, "server", null,
+                    delegate() { return typeof(Program).GetField("server", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); });
+            }
 
             // The author's entry point, unchanged.
             MethodInfo main = typeof(Program).GetMethod("Main",
@@ -198,6 +208,7 @@ namespace Server
             Console.WriteLine("VexillumServer [--root <dir>] [--port <n>] [--help]");
             Console.WriteLine("  --root <dir>   run with <dir> as the working directory (Maps/, Server/settings.txt)");
             Console.WriteLine("  --port <n>     listen on port n (updates the port line in Server/settings.txt)");
+            Console.WriteLine("  VEXILLUM_DEBUG_PORT=<n>  start the in-process debug console on 127.0.0.1:<n>");
         }
     }
 }
