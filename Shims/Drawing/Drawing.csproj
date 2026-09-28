@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Cross-platform stand-in for System.Drawing (GDI+), see CLAUDE.md rule 16
+       and docs/PORTING.md step 4. Color, Point, PointF, Rectangle, RectangleF,
+       Size and SizeF already ship in .NET (System.Drawing.Primitives) and must
+       NOT be redefined here; this assembly adds Bitmap, Graphics, Brush, Font
+       and the Imaging types over a managed decoder (StbImageSharp). -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Shims.Drawing</AssemblyName>
+    <RootNamespace>System.Drawing</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
+    <PackageReference Include="StbImageSharp" Version="2.30.16" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,3 @@
+[submodule "external/Nuclex.MonoGame"]
+	path = external/Nuclex.MonoGame
+	url = https://github.com/danroblewis/Nuclex.MonoGame.git

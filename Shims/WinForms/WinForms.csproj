@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Cross-platform stand-in for the few System.Windows.Forms members the
+       game uses: MessageBox, KeysConverter, IMessageFilter, Message,
+       Application.AddMessageFilter (docs/PORTING.md step 7). -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Vexillum.Shims.WinForms</AssemblyName>
+    <RootNamespace>System.Windows.Forms</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
+  </ItemGroup>
+</Project>

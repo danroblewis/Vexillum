@@ -1,0 +1,17 @@
+<Project>
+  <!-- Shared by every project: the original .csproj files are patched in place
+       (see the git history); this holds what the .NET SDK needs and the projects
+       did not say. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RollForward>Major</RollForward>
+    <!-- The originals defined TRACE;WINDOWS in their x86 configurations (WINDOWS is XNA's
+         desktop-platform switch that wraps Program.Main); the x86 platform is gone, so define them here. -->
+    <DefineConstants>$(DefineConstants);TRACE;WINDOWS</DefineConstants>
+    <WarningLevel>1</WarningLevel>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0414;CS0649;CS0108;CS0618;CS1717;CS0162;CS0169;CS0067;NU1701</NoWarn>
+  </PropertyGroup>
+</Project>
