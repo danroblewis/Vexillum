@@ -25,3 +25,25 @@ The 2013 sources are unchanged apart from one line marked `// PORT:` in
 `System.Windows.Forms` and Steamworks are provided by the small projects under
 `Shims/`, so the original files compile as they were written. Both programs
 run from a directory laid out like `Test/` (`make server`/`make client` do that).
+
+### Server list and LAN games
+
+The in-game server list used to come from `playvexillum.com`, which no longer
+exists. `Shims/MasterServer` now answers the game's three requests to that
+site (`servers.php`, `ping.php`, `reportBug.php`) in the original text format,
+so the menus work as they were written (two lines marked `// PORT:` in
+`Game/Game/Util.cs` route the requests to it):
+
+* **LAN:** a running server answers discovery queries and sends a beacon on
+  UDP 24224 every second; the server list shows every server on the local
+  network with a `[LAN]` prefix, no configuration needed.
+* **Internet:** a server whose `settings.txt` says `public true` posts a
+  heartbeat every 10 minutes to the public ntfy.sh topic `vexillum-servers-v1`.
+  The list shows servers heard from in the last 22 minutes that answer a
+  status probe. Players still need the server's TCP port forwarded, as in 2013.
+* **Bug reports** are saved to `bugreports/` next to the game.
+
+Environment variables: `VEXILLUM_MASTER=off` disables the internet registry,
+`VEXILLUM_MASTER_URL` and `VEXILLUM_MASTER_TOPIC` point it at another ntfy
+server or topic (a self-hosted one works), `VEXILLUM_LAN=off` disables LAN
+discovery and `VEXILLUM_LAN_PORT` moves it off 24224.
