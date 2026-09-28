@@ -47,6 +47,7 @@ namespace Vexillum
         }
         public static string HttpPost(string path, string data)
         {
+            string ported; if (global::Vexillum.Port.Master.MasterServer.TryHandle(path, data, out ported)) return ported; // PORT: playvexillum.com no longer exists; Shims/MasterServer answers the original scripts
             ServicePointManager.Expect100Continue = false;
             try
             {
@@ -79,6 +80,7 @@ namespace Vexillum
         }
         public static string HttpGet(string path)
         {
+            string ported; if (global::Vexillum.Port.Master.MasterServer.TryHandle(path, null, out ported)) return ported; // PORT: playvexillum.com no longer exists; Shims/MasterServer answers the original scripts
             try
             {
                 Uri uri = new Uri(Vexillum.Server+"/"+path);

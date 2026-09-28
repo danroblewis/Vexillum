@@ -81,6 +81,8 @@ namespace Server
                 return 2;
             }
 
+            // Master-server replacement logs through the server console log.
+            global::Vexillum.Port.Master.MasterServer.Logger = delegate(string m) { Util.Debug(m); };
 
 
             // The author's entry point, unchanged.

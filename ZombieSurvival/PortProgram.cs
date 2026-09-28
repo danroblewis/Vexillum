@@ -76,6 +76,8 @@ namespace Vexillum
             // Make them agree (docs/PORTING.md step 10).
             bool contentDirOk = RuntimeDirectory.UseCurrentDirectoryForContent();
 
+            // Master-server replacement logs through the game's debug log.
+            global::Vexillum.Port.Master.MasterServer.Logger = delegate(string m) { Util.Debug(m); };
 
             // Makes the author's Content.Load<Effect>("Blur") load on MonoGame
             // (docs/PORTING.md step 8).

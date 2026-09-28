@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Replacement for the dead playvexillum.com web service (server list,
+       heartbeat, bug reports). Not historical code: Util.HttpGet/HttpPost in
+       the original Game project hand their requests to MasterServer.TryHandle
+       (two // PORT: lines), and this project answers them using a public
+       ntfy.sh topic as the internet registry plus UDP beacons on the LAN.
+       Everything is configurable through environment variables; see
+       MasterServer.cs. -->
+  <PropertyGroup>
+    <AssemblyName>Vexillum.Port.MasterServer</AssemblyName>
+    <RootNamespace>Vexillum.Port.Master</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+</Project>
